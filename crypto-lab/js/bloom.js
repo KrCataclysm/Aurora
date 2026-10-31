@@ -36,6 +36,10 @@ export function createBloom(canvas, cb = {}) {
   let last = 0;
   let bloomed = false;
   const ptr = { x: 0, y: 0, on: false };
+  let tgx = 0;
+  let tgy = 0;
+  let tx = 0;
+  let ty = 0;
 
   function build() {
     const box = canvas.parentElement;
@@ -170,6 +174,8 @@ export function createBloom(canvas, cb = {}) {
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
+    const D = CFG.dpr;
+    ctx.setTransform(D, 0, 0, D, tx * 7 * D, ty * 5 * D);
     const sway = Math.sin(elapsed * 0.0009) * 3.5;
     let lastCi = -1;
     for (const p of parts) {
@@ -184,6 +190,7 @@ export function createBloom(canvas, cb = {}) {
     }
     const rf = clamp((elapsed - 5200) / 1800);
     if (rf > 0) {
+      ctx.setTransform(D, 0, 0, D, tx * 17 * D, ty * 13 * D);
       ctx.fillStyle = palette[6];
       for (const r of rings) {
         const cr = Math.cos(r.rot);
@@ -202,6 +209,7 @@ export function createBloom(canvas, cb = {}) {
       }
     }
     ctx.globalAlpha = 1;
+    ctx.setTransform(D, 0, 0, D, 0, 0);
   }
 
   function frame(now) {
@@ -209,6 +217,8 @@ export function createBloom(canvas, cb = {}) {
     const dt = Math.min(now - last, 50);
     last = now;
     elapsed += dt;
+    tx += (tgx - tx) * 0.08;
+    ty += (tgy - ty) * 0.08;
     update(dt);
     draw();
     if (!bloomed && elapsed > 4300) {
@@ -247,6 +257,10 @@ export function createBloom(canvas, cb = {}) {
     stop() {
       running = false;
       cancelAnimationFrame(raf);
+    },
+    setTilt(x, y) {
+      tgx = x;
+      tgy = y;
     },
     rebuild() {
       build();

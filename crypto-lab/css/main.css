@@ -211,7 +211,13 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
 .end.lit::before { opacity: 1; }
 .end > * { position: relative; }
 .closing { max-width: 22ch; text-align: center; font-weight: 500; font-size: clamp(28px, 7.5vw, 40px); line-height: 1.25; text-wrap: balance; }
-.mini { width: 120px; height: 120px; margin: 28px 0 12px; overflow: visible; }
+.mini-btn { margin: 28px 0 12px; padding: 0; background: none; border: 0; cursor: pointer; touch-action: manipulation; }
+.mini { display: block; width: 120px; height: 120px; overflow: visible; }
+.mini-ping { fill: none; stroke: var(--rose); stroke-width: .5; opacity: 0; transform-origin: center; }
+.mini-btn.thump .mini { animation: thump .9s ease-out; }
+.mini-btn.thump .mini-ping { animation: ping .9s ease-out; }
+@keyframes thump { 0% { transform: scale(1); } 15% { transform: scale(1.18); } 30% { transform: scale(1); } 45% { transform: scale(1.12); } 70%, 100% { transform: scale(1); } }
+@keyframes ping { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.9); opacity: 0; } }
 .mini-path {
   fill: none; stroke: var(--rose); stroke-width: .7; stroke-linejoin: round;
   transform-origin: center; animation: beat 2.4s ease-in-out infinite;
@@ -231,7 +237,8 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
 }
 @media (max-height: 520px) {
   .garden { height: 60%; }
-  .mini { width: 84px; height: 84px; margin: 14px 0 6px; }
+  .mini-btn { margin: 14px 0 6px; }
+  .mini { width: 84px; height: 84px; }
   .again { margin-top: 18px; }
   .eq { height: 32px; margin-top: 16px; }
   .cards { margin-top: 16px; }
@@ -240,6 +247,7 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .aurora, .mini-path, .gate-btn::before, .s1.done .cue { animation: none; }
+  .mini-btn.thump .mini, .mini-btn.thump .mini-ping { animation: none; }
   .flower { transform: scale(1); }
   .grown .flower { animation: none; }
   .w { transition: none; opacity: 1; color: var(--text); }

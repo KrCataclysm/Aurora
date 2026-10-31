@@ -235,11 +235,15 @@ export function mount(data, root) {
   const end = el('section', 'scene end');
   const closing = el('h2', 'closing', data.closing);
   const mini = sv('svg', { viewBox: '-20 -20 40 40', class: 'mini', 'aria-hidden': 'true' });
-  mini.appendChild(sv('path', { d: miniPath(90, 1), class: 'mini-path' }));
+  mini.append(sv('path', { d: miniPath(90, 1), class: 'mini-ping' }), sv('path', { d: miniPath(90, 1), class: 'mini-path' }));
+  const heartBtn = el('button', 'mini-btn');
+  heartBtn.type = 'button';
+  heartBtn.setAttribute('aria-label', 'Pulse');
+  heartBtn.appendChild(mini);
   const sig = el('p', 'sig', data.sig);
   const again = el('button', 'again', 'Ver de novo');
   again.type = 'button';
-  end.append(closing, mini, sig, again);
+  end.append(closing, heartBtn, sig, again);
   scenes.push(end);
 
   const progress = el('div', 'progress');
@@ -365,6 +369,7 @@ export function mount(data, root) {
     if (started) return;
     started = true;
     sfx.unlock();
+    enableTilt();
     document.body.classList.remove('locked');
     document.body.classList.add('started');
     gate.classList.add('gone');
@@ -402,15 +407,71 @@ export function mount(data, root) {
     }, 250);
   });
 
+  const stars = document.getElementById('stars');
+  const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+  let scrollShift = 0;
+  let tiltRaf = 0;
+  let tiltOn = false;
+  let tiltBase = null;
+  const place = () => {
+    stars.style.transform = `translate3d(${(tilt.x * 10).toFixed(1)}px, ${(scrollShift + tilt.y * 8).toFixed(1)}px, 0)`;
+  };
+  const easeTilt = () => {
+    tiltRaf = 0;
+    tilt.x += (tilt.tx - tilt.x) * 0.1;
+    tilt.y += (tilt.ty - tilt.y) * 0.1;
+    place();
+    if (Math.abs(tilt.tx - tilt.x) + Math.abs(tilt.ty - tilt.y) > 0.003) tiltRaf = requestAnimationFrame(easeTilt);
+  };
+  const setTilt = (x, y) => {
+    tilt.tx = clamp(x, -1, 1);
+    tilt.ty = clamp(y, -1, 1);
+    bloom.setTilt(tilt.tx, tilt.ty);
+    if (!tiltRaf) tiltRaf = requestAnimationFrame(easeTilt);
+  };
+  const onOrient = (e) => {
+    if (e.gamma == null || e.beta == null) return;
+    if (!tiltBase) tiltBase = { g: e.gamma, b: e.beta };
+    tiltBase.g += (e.gamma - tiltBase.g) * 0.01;
+    tiltBase.b += (e.beta - tiltBase.b) * 0.01;
+    setTilt((e.gamma - tiltBase.g) / 20, (e.beta - tiltBase.b) / 20);
+  };
+  const enableTilt = async () => {
+    if (CFG.reduced || tiltOn) return;
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if ((await DeviceOrientationEvent.requestPermission()) !== 'granted') return;
+      }
+      addEventListener('deviceorientation', onOrient, { passive: true });
+      tiltOn = true;
+    } catch (e) { /* tilt is optional */ }
+  };
+  if (!CFG.reduced) {
+    addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' && document.body.classList.contains('started')) {
+        setTilt((e.clientX / innerWidth - 0.5) * 2, (e.clientY / innerHeight - 0.5) * 2);
+      }
+    }, { passive: true });
+  }
   const onScroll = () => {
     const max = document.documentElement.scrollHeight - innerHeight;
     const p = max > 0 ? Math.min(1, scrollY / max) : 0;
     progress.style.transform = `scaleY(${p})`;
-    stars.style.transform = `translateY(${((0.5 - p) * 0.14 * innerHeight).toFixed(1)}px)`;
+    scrollShift = (0.5 - p) * 0.14 * innerHeight;
+    place();
     document.body.classList.toggle('scrolled', scrollY > 40);
   };
-  const stars = document.getElementById('stars');
   addEventListener('scroll', onScroll, { passive: true });
+
+  heartBtn.addEventListener('click', () => {
+    heartBtn.classList.remove('thump');
+    void heartBtn.offsetWidth;
+    heartBtn.classList.add('thump');
+    sfx.lubdub();
+    if (navigator.vibrate) navigator.vibrate([30, 70, 30]);
+    const r = heartBtn.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2);
+  });
 
   /* words: start when mostly in view, finish at once if the reader moves on or taps */
   const finish = (r) => {
