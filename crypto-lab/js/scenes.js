@@ -138,10 +138,8 @@ export function mount(data, root) {
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
   const title = words(el('h1', 'title'), data.title, 'tw');
-  const hint = el('p', 'hint', 'deslize para ler a mensagem inteira');
-  const cue = el('div', 'cue');
-  cue.setAttribute('aria-hidden', 'true');
-  s1.append(stage, title, hint, cue);
+  const hint = el('p', 'hint', 'toque em continuar, ou deslize, para ler a mensagem inteira');
+  s1.append(stage, title, hint);
   scenes.push(s1);
 
   /* 2 · bloom */
@@ -230,9 +228,15 @@ export function mount(data, root) {
   end.append(closing, rule, sig, again);
   scenes.push(end);
 
+  const nextBtn = el('button', 'next');
+  nextBtn.type = 'button';
+  nextBtn.setAttribute('aria-label', 'Continuar');
+  const arrow = sv('svg', { viewBox: '0 0 18 30', 'aria-hidden': 'true' });
+  arrow.appendChild(sv('path', { d: 'M9 1v26M2.5 20.5L9 28l6.5-7.5', class: 'ico line' }));
+  nextBtn.append(el('span', 'next-t', 'continuar'), arrow);
   const progress = el('div', 'progress');
   progress.setAttribute('aria-hidden', 'true');
-  root.append(gate, mute, progress, petalCanvas(), ...scenes);
+  root.append(gate, mute, nextBtn, progress, petalCanvas(), ...scenes);
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
@@ -405,6 +409,57 @@ export function mount(data, root) {
     }
   }, { threshold: [0, 0.1, 0.35, 0.5] });
   reveals.forEach((r) => ioText.observe(r.sc));
+
+  /* the "continue" button: a slow, eased scroll to the next screen */
+  let scrollAnim = 0;
+  const root0 = document.documentElement;
+  const stopAnim = () => {
+    cancelAnimationFrame(scrollAnim);
+    root0.style.scrollSnapType = '';
+  };
+  ['wheel', 'touchstart', 'keydown'].forEach((ev) => addEventListener(ev, stopAnim, { passive: true }));
+  const smoothTo = (y) => {
+    if (CFG.reduced) {
+      scrollTo(0, y);
+      return;
+    }
+    cancelAnimationFrame(scrollAnim);
+    const y0 = scrollY;
+    const d = y - y0;
+    const t0 = performance.now();
+    const dur = clamp((Math.abs(d) / innerHeight) * 900 + 500, 700, 1500);
+    root0.style.scrollSnapType = 'none';
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      scrollTo(0, y0 + d * e);
+      if (t < 1) scrollAnim = requestAnimationFrame(step);
+      else root0.style.scrollSnapType = '';
+    };
+    scrollAnim = requestAnimationFrame(step);
+  };
+  const currentIdx = () => {
+    const y = scrollY + innerHeight * 0.5;
+    let k = 0;
+    scenes.forEach((sc, i) => { if (sc.offsetTop <= y) k = i; });
+    return k;
+  };
+  const refreshNext = () => {
+    const ready = started && s1.classList.contains('done');
+    nextBtn.classList.toggle('on', ready && currentIdx() < scenes.length - 1);
+  };
+  nextBtn.addEventListener('click', () => {
+    const i = currentIdx();
+    const r = reveals.find((x) => x.sc === scenes[i]);
+    if (r && !r.done) {
+      finish(r);
+      return;
+    }
+    if (scenes[i + 1]) smoothTo(scenes[i + 1].offsetTop);
+  });
+  addEventListener('scroll', refreshNext, { passive: true });
+  new MutationObserver(refreshNext).observe(s1, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', refreshNext);
 
   /* closing: a soft arpeggio and a few petals */
   let driftTimer = null;
