@@ -48,6 +48,7 @@ export function createBloom(canvas, cb = {}) {
     ctx.setTransform(CFG.dpr, 0, 0, CFG.dpr, 0, 0);
     const k = CFG.lowEnd ? 0.5 : 1;
     R = Math.min(w * 0.4, h * 0.2);
+    const ps = clamp(R / 150, 1, 1.6);
     const cx = w / 2;
     const y0 = h * 0.7;
     Cx = cx;
@@ -63,7 +64,7 @@ export function createBloom(canvas, cb = {}) {
       const prof = Hm * Math.pow(1 - u * u, 1.2);
       const x = cx + (u * Wd) / 2;
       const y = y0 - rnd(-0.15, 1) * prof;
-      add({ hx: x, hy: y, bx: x, by: y + 24, t0: rnd(0, 1200), dur: 700, ci: 7, sz: rnd(1, 2), a: 0.6 });
+      add({ hx: x, hy: y, bx: x, by: y + 24, t0: rnd(0, 1200), dur: 700, ci: 7, sz: rnd(1, 2) * ps, a: 0.6 });
     }
 
     const top = B[1] + 4;
@@ -73,7 +74,7 @@ export function createBloom(canvas, cb = {}) {
       const s = Math.random();
       add({
         hx: stemX(s) + rnd(-1.6, 1.6) * (1.2 - 0.5 * s), hy: y0 - s * stemLen, bx: cx, by: y0,
-        t0: 800 + s * 2200, dur: 420, ci: 4 + Math.floor(rnd(0, 2)), sz: rnd(1.2, 2.2), sw: s * 0.5,
+        t0: 800 + s * 2200, dur: 420, ci: 4 + Math.floor(rnd(0, 2)), sz: rnd(1.2, 2.2) * ps, sw: s * 0.5,
       });
     }
 
@@ -92,7 +93,7 @@ export function createBloom(canvas, cb = {}) {
           hx: sx + dir[0] * t * Ll + perp[0] * u * hw,
           hy: sy + dir[1] * t * Ll + perp[1] * u * hw + t * t * Ll * 0.15,
           bx: sx, by: sy, t0: 2300 + li * 500 + t * 800, dur: 700,
-          ci: Math.abs(u) > 0.8 ? 5 : 4 - Math.floor(rnd(0, 2)), sz: rnd(1.2, 2.1), sw: s * 0.5 + t * 0.3,
+          ci: Math.abs(u) > 0.8 ? 5 : 4 - Math.floor(rnd(0, 2)), sz: rnd(1.2, 2.1) * ps, sw: s * 0.5 + t * 0.3,
         });
       }
     });
@@ -114,7 +115,7 @@ export function createBloom(canvas, cb = {}) {
             add({
               hx: B[0] + dir[0] * t * Lp + perp[0] * u * hw, hy: B[1] + dir[1] * t * Lp + perp[1] * u * hw,
               bx: B[0], by: B[1], t0: tp + t * 250, dur: 1100, open: true,
-              ci: clamp(Math.floor(t * 6.9 + rnd(-0.6, 0.6)), 0, 6), sz: rnd(1.3, 2.5), sw: 1,
+              ci: clamp(Math.floor(t * 6.9 + rnd(-0.6, 0.6)), 0, 6), sz: rnd(1.3, 2.5) * ps, sw: 1,
             });
           }
         }

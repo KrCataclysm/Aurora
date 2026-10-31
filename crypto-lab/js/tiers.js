@@ -40,13 +40,15 @@ export function createStack(canvas, phrases, cb = {}) {
     ctx.setTransform(CFG.dpr, 0, 0, CFG.dpr, 0, 0);
 
     const W = Math.min(w * 0.9, 560);
-    const fs = clamp(W * 0.046, 14, 24);
-    const rh = fs * 1.8;
     const tiers = [{ n: 3, f: 0.52 }, { n: 3, f: 0.76 }, { n: 4, f: 1 }];
     const total = tiers.reduce((a, t) => a + t.n, 0);
     const gap = 10;
+    let fs = clamp(W * 0.046, 14, 24);
+    const compFor = (f) => f * 3.6 + 30 + total * f * 1.8 + gap * (tiers.length - 1);
+    if (compFor(fs) > h * 0.9) fs = Math.max(10, fs * ((h * 0.9) / compFor(fs)));
+    const rh = fs * 1.8;
     const wickLen = fs * 3.6;
-    const comp = wickLen + 30 + total * rh + gap * (tiers.length - 1);
+    const comp = compFor(fs);
     const yTop = (h - comp) / 2 + wickLen + 30;
     const order = phrases.slice().sort(() => Math.random() - 0.5);
     const meas = document.createElement('canvas').getContext('2d');
@@ -106,6 +108,7 @@ export function createStack(canvas, phrases, cb = {}) {
       };
     });
     if (CFG.reduced) wicks.forEach((c) => { c.want = 1; c.lit = 1; });
+    if (cb.onLayout) cb.onLayout(wicks.map((c) => ({ x: c.tx, y: c.ty - 6 })));
   }
 
   function extinguish(c) {
@@ -204,17 +207,16 @@ export function createStack(canvas, phrases, cb = {}) {
     raf = requestAnimationFrame(frame);
   }
 
-  canvas.addEventListener('pointerdown', (e) => {
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
-    for (const c of wicks) {
-      if (c.lit > 0.3 && Math.hypot(x - c.tx, y - (c.ty - 6)) < 34) {
-        extinguish(c);
-        break;
-      }
+  function toggle(i) {
+    const c = wicks[i];
+    if (!c) return;
+    if (c.out || c.want === 0) {
+      c.out = false;
+      c.litAt = elapsed;
+      return;
     }
-  });
+    if (c.lit > 0.3) extinguish(c);
+  }
 
   return {
     start() {
@@ -231,5 +233,6 @@ export function createStack(canvas, phrases, cb = {}) {
       build();
       draw(0);
     },
+    toggle,
   };
 }

@@ -6,6 +6,7 @@ import { createStack } from './tiers.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const TAU = Math.PI * 2;
+const WICKS = 5;
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -18,6 +19,7 @@ const sv = (tag, attrs = {}) => {
   return e;
 };
 const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 /* ---------- petal particles (shared canvas) ---------- */
 const P = [];
@@ -105,7 +107,7 @@ function flower(kind) {
   const g = sv('g', { transform: `rotate(${Math.round(rnd(0, 360))})` });
   if (kind === 'rose') {
     for (let i = 0; i < 6; i++) {
-      g.appendChild(sv('path', { d: blob(46 - i * 7, rnd(0, TAU), 5 + (i % 3)), class: i % 2 ? 'f1' : 'f2', 'stroke-width': '0.7' }));
+      g.appendChild(sv('path', { d: blob(46 - i * 7, rnd(0, TAU), 5 + (i % 3)), class: i % 2 ? 'f1' : 'f2' }));
     }
     g.appendChild(sv('path', { d: blob(5, 0, 3), class: 'core' }));
   } else {
@@ -125,7 +127,7 @@ export function mount(data, root) {
   const cs = getComputedStyle(document.documentElement);
   colors = { rose: cs.getPropertyValue('--rose').trim(), petal: cs.getPropertyValue('--petal').trim() };
   const scenes = [];
-  const cardsAt = Math.min(Math.max(Number.isInteger(data.cardsAt) ? data.cardsAt : 0, 0), data.blocks.length - 1);
+  const cardsAt = clamp(Number.isInteger(data.cardsAt) ? data.cardsAt : 0, 0, data.blocks.length - 1);
   let curveRun = null;
 
   /* S0 gate */
@@ -139,12 +141,14 @@ export function mount(data, root) {
   const mute = el('button', 'mute');
   mute.type = 'button';
   mute.setAttribute('aria-label', 'Silenciar');
-  const bars = sv('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
-  const spk = sv('path', { d: 'M4 9v6h4l5 4V5L8 9H4z', class: 'ico' });
-  const wave = sv('path', { d: 'M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12', class: 'ico line' });
-  const slash = sv('path', { d: 'M17 9l5 6M22 9l-5 6', class: 'ico line off' });
-  bars.append(spk, wave, slash);
-  mute.appendChild(bars);
+  mute.setAttribute('aria-pressed', 'false');
+  const icon = sv('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+  icon.append(
+    sv('path', { d: 'M4 9v6h4l5 4V5L8 9H4z', class: 'ico' }),
+    sv('path', { d: 'M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12', class: 'ico line' }),
+    sv('path', { d: 'M17 9l5 6M22 9l-5 6', class: 'ico line off' }),
+  );
+  mute.appendChild(icon);
 
   /* S1 curve */
   const s1 = el('section', 'scene s1');
@@ -155,34 +159,16 @@ export function mount(data, root) {
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
   const title = el('h1', 'title', data.title);
-  s1.append(stage, title);
+  const cue = el('div', 'cue');
+  cue.setAttribute('aria-hidden', 'true');
+  s1.append(stage, title, cue);
   scenes.push(s1);
 
-  /* S2 flowers */
+  /* S2 bloom + flowers */
   const s2 = el('section', 'scene s2');
   const bloomCv = el('canvas', 'bloom');
   bloomCv.setAttribute('aria-hidden', 'true');
   const garden = el('div', 'garden');
-  const nF = Math.min(14, Math.max(6, Math.round(innerWidth / 70)));
-  for (let i = 0; i < nF; i++) {
-    const size = Math.round(rnd(78, 150));
-    const b = el('button', 'flower');
-    b.type = 'button';
-    b.setAttribute('aria-label', 'Flower');
-    b.style.width = size + 'px';
-    b.style.height = size + 'px';
-    b.style.left = `calc(${(((i + 0.5) / nF) * 100 + rnd(-2, 2)).toFixed(1)}% - ${size / 2}px)`;
-    b.style.bottom = `${-Math.round(size * rnd(0.12, 0.3))}px`;
-    b.style.setProperty('--d', `${(i * 0.11 + rnd(0, 0.2)).toFixed(2)}s`);
-    b.appendChild(flower(Math.random() < 0.4 ? 'rose' : 'flower'));
-    b.addEventListener('click', () => {
-      const r = b.getBoundingClientRect();
-      burst(r.left + r.width / 2, r.top + r.height * 0.45);
-      sfx.petal();
-      sfx.pluck(i % 10);
-    });
-    garden.appendChild(b);
-  }
   s2.append(bloomCv, garden);
   scenes.push(s2);
 
@@ -190,7 +176,15 @@ export function mount(data, root) {
   const s3 = el('section', 'scene stack');
   const stackCv = el('canvas', 'stack-cv');
   stackCv.setAttribute('aria-hidden', 'true');
-  s3.appendChild(stackCv);
+  const wickLayer = el('div', 'wicks');
+  const wickBtns = Array.from({ length: WICKS }, (_, i) => {
+    const b = el('button', 'wick-btn');
+    b.type = 'button';
+    b.setAttribute('aria-label', `Switch ${i + 1}`);
+    wickLayer.appendChild(b);
+    return b;
+  });
+  s3.append(stackCv, wickLayer);
   scenes.push(s3);
 
   /* S3+ text, cards */
@@ -200,18 +194,19 @@ export function mount(data, root) {
   data.blocks.forEach((text, i) => {
     const sc = el('section', 'scene text');
     const p = el('p', 'prose' + (text.length < 140 ? ' center' : ''));
-    const parts = /\s/.test(text) ? text.split(/\s+/).filter(Boolean) : text.match(/.{1,2}/gu) || [];
+    const spaced = /\s/.test(text);
+    const parts = spaced ? text.split(/\s+/).filter(Boolean) : text.match(/.{1,2}/gu) || [];
     const spans = parts.map((w, k) => {
       const sp = el('span', 'w' + (CFG.reduced ? ' on' : ''), w);
       p.appendChild(sp);
-      if (/\s/.test(text) && k < parts.length - 1) p.appendChild(document.createTextNode(' '));
+      if (spaced && k < parts.length - 1) p.appendChild(document.createTextNode(' '));
       return sp;
     });
-    reveals.push({ sc, spans, started: false });
+    const rv = { sc, p, spans, started: false, done: CFG.reduced, k: 0, timer: 0 };
+    reveals.push(rv);
     sc.appendChild(p);
     if (i === cardsAt) {
       cardsScene = sc;
-      sc.classList.add('with-cards');
       const row = el('div', 'cards');
       data.cards.slice(0, 3).forEach((c, ci) => {
         const card = el('button', 'card');
@@ -253,6 +248,45 @@ export function mount(data, root) {
   aurora.setAttribute('aria-hidden', 'true');
   root.append(aurora, gate, mute, progress, petalCanvas(), ...scenes);
 
+  /* ---------- layout helpers ---------- */
+  const fitTitle = () => {
+    title.style.fontSize = '';
+    let fs = parseFloat(getComputedStyle(title).fontSize);
+    const max = s1.clientHeight * 0.28;
+    while (title.offsetHeight > max && fs > 26) {
+      fs -= 2;
+      title.style.fontSize = fs + 'px';
+    }
+  };
+
+  let grown = CFG.reduced;
+  const buildGarden = () => {
+    garden.replaceChildren();
+    const base = Math.min(innerWidth, innerHeight * 0.9);
+    const nF = clamp(Math.round(innerWidth / 70), 6, 14);
+    for (let i = 0; i < nF; i++) {
+      const size = Math.round(clamp(base * rnd(0.2, 0.38), 64, 170));
+      const b = el('button', 'flower');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Flower');
+      b.style.width = size + 'px';
+      b.style.height = size + 'px';
+      b.style.left = `calc(${(((i + 0.5) / nF) * 100 + rnd(-2, 2)).toFixed(1)}% - ${size / 2}px)`;
+      b.style.bottom = `${-Math.round(size * rnd(0.12, 0.3))}px`;
+      b.style.setProperty('--d', `${(i * 0.11 + rnd(0, 0.2)).toFixed(2)}s`);
+      b.appendChild(flower(Math.random() < 0.4 ? 'rose' : 'flower'));
+      b.addEventListener('click', () => {
+        const r = b.getBoundingClientRect();
+        burst(r.left + r.width / 2, r.top + r.height * 0.45);
+        sfx.petal();
+        sfx.pluck(i % 10);
+      });
+      garden.appendChild(b);
+    }
+    garden.classList.toggle('settled', grown);
+  };
+  buildGarden();
+
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
   const bloom = createBloom(bloomCv, {
@@ -265,6 +299,11 @@ export function mount(data, root) {
     },
   });
   const stack = createStack(stackCv, phrases, {
+    onLayout: (pos) => pos.forEach((p, i) => {
+      if (!wickBtns[i]) return;
+      wickBtns[i].style.left = p.x + 'px';
+      wickBtns[i].style.top = p.y + 'px';
+    }),
     onLight: (i, n) => sfx.bell(i, n),
     onSnuff: () => {
       sfx.click();
@@ -276,36 +315,55 @@ export function mount(data, root) {
       for (let i = 0; i < 3; i++) burst(r.left + r.width * (0.3 + 0.2 * i), r.top + r.height * 0.35);
     },
   });
-  if (CFG.reduced) bloom.drawStatic();
-  else bloom.rebuild();
-  stack.rebuild();
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => stack.rebuild());
+  wickBtns.forEach((b, i) => b.addEventListener('click', () => stack.toggle(i)));
+  const buildCanvases = () => {
+    if (CFG.reduced) bloom.drawStatic();
+    else bloom.rebuild();
+    stack.rebuild();
+  };
+  buildCanvases();
+  fitTitle();
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      stack.rebuild();
+      fitTitle();
+    });
+  }
+
   const live = [[s2, CFG.reduced ? { start() {}, stop() {} } : bloom], [s3, stack]];
-  const io2 = new IntersectionObserver((entries) => {
+  const ioLive = new IntersectionObserver((entries) => {
     for (const en of entries) {
       const o = live.find((l) => l[0] === en.target)[1];
       if (en.isIntersecting) o.start();
       else o.stop();
     }
   }, { threshold: 0.1 });
-  live.forEach((l) => io2.observe(l[0]));
+  live.forEach((l) => ioLive.observe(l[0]));
+
   if (!CFG.reduced) {
     addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'mouse' || !document.body.classList.contains('started')) return;
       if (Math.random() < 0.3) spawn(e.clientX + rnd(-4, 4), e.clientY + rnd(-4, 4), rnd(-0.3, 0.3), rnd(0.1, 0.6), 0.004, rnd(2, 4));
     });
   }
-  const stars = document.getElementById('stars');
+
   const runCurve = (staticMode) => {
     if (curveRun) curveRun.cancel();
     title.classList.remove('show');
+    s1.classList.remove('done');
     curveRun = play({
       line, mosaic, stage, phrases, sfx, staticMode,
-      onDone: () => title.classList.add('show'),
+      onDone: () => {
+        title.classList.add('show');
+        s1.classList.add('done');
+      },
     });
   };
 
+  let started = false;
   gbtn.addEventListener('click', () => {
+    if (started) return;
+    started = true;
     sfx.unlock();
     document.body.classList.remove('locked');
     document.body.classList.add('started');
@@ -318,6 +376,7 @@ export function mount(data, root) {
     const m = !sfx.isMuted();
     sfx.setMuted(m);
     mute.classList.toggle('off', m);
+    mute.setAttribute('aria-pressed', String(m));
     mute.setAttribute('aria-label', m ? 'Ativar som' : 'Silenciar');
   });
 
@@ -326,14 +385,20 @@ export function mount(data, root) {
     setTimeout(() => runCurve(CFG.reduced), CFG.reduced ? 0 : 700);
   });
 
+  /* resize: ignore the mobile toolbar showing/hiding */
+  let lw = innerWidth;
+  let lh = innerHeight;
   let rs;
   addEventListener('resize', () => {
     clearTimeout(rs);
     rs = setTimeout(() => {
-      if (document.body.classList.contains('started') && title.classList.contains('show')) runCurve(true);
-      if (CFG.reduced) bloom.drawStatic();
-      else bloom.rebuild();
-      stack.rebuild();
+      if (innerWidth === lw && Math.abs(innerHeight - lh) < 140) return;
+      lw = innerWidth;
+      lh = innerHeight;
+      fitTitle();
+      if (started && title.classList.contains('show')) runCurve(true);
+      buildGarden();
+      buildCanvases();
     }, 250);
   });
 
@@ -341,11 +406,41 @@ export function mount(data, root) {
     const max = document.documentElement.scrollHeight - innerHeight;
     const p = max > 0 ? Math.min(1, scrollY / max) : 0;
     progress.style.transform = `scaleY(${p})`;
-    if (stars) stars.style.transform = `translateY(${((0.5 - p) * 0.14 * innerHeight).toFixed(1)}px)`;
+    stars.style.transform = `translateY(${((0.5 - p) * 0.14 * innerHeight).toFixed(1)}px)`;
+    document.body.classList.toggle('scrolled', scrollY > 40);
   };
+  const stars = document.getElementById('stars');
   addEventListener('scroll', onScroll, { passive: true });
 
-  /* growth of flowers, word reveal, equalizer, final scene */
+  /* words: start when mostly in view, finish at once if the reader moves on or taps */
+  const finish = (r) => {
+    if (r.done) return;
+    clearInterval(r.timer);
+    r.done = true;
+    r.spans.forEach((s) => s.classList.add('on', 'now'));
+  };
+  reveals.forEach((r) => r.p.addEventListener('click', () => finish(r)));
+  const ioText = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const r = reveals.find((x) => x.sc === en.target);
+      if (!r || r.done) continue;
+      const seen = en.isIntersecting && (en.intersectionRatio >= 0.35 || en.intersectionRect.height >= innerHeight * 0.5);
+      if (seen && !r.started) {
+        r.started = true;
+        r.timer = setInterval(() => {
+          if (r.k >= r.spans.length) {
+            clearInterval(r.timer);
+            r.done = true;
+            return;
+          }
+          r.spans[r.k++].classList.add('on');
+        }, 333);
+      } else if (!en.isIntersecting && r.started) finish(r);
+    }
+  }, { threshold: [0, 0.1, 0.35, 0.5] });
+  reveals.forEach((r) => ioText.observe(r.sc));
+
+  /* flowers grow once, equalizer, final scene */
   let eqOn = false;
   const eqLoop = (now) => {
     if (!eqOn || document.hidden) {
@@ -366,20 +461,9 @@ export function mount(data, root) {
   const io = new IntersectionObserver((entries) => {
     for (const en of entries) {
       const t = en.target;
-      if (t === s2 && en.isIntersecting) {
+      if (t === s2 && en.isIntersecting && !grown) {
+        grown = true;
         garden.classList.add('grown');
-        io.unobserve(s2);
-      }
-      const rv = reveals.find((r) => r.sc === t);
-      if (rv && en.isIntersecting && !rv.started) {
-        rv.started = true;
-        if (!CFG.reduced) {
-          let k = 0;
-          const timer = setInterval(() => {
-            if (k >= rv.spans.length) return clearInterval(timer);
-            rv.spans[k++].classList.add('on');
-          }, 333);
-        }
       }
       if (t === cardsScene) {
         if (en.isIntersecting && !eqOn) {
@@ -388,8 +472,9 @@ export function mount(data, root) {
         } else if (!en.isIntersecting) eqOn = false;
       }
       if (t === end) {
-        end.classList.toggle('lit', en.isIntersecting);
-        if (en.isIntersecting) {
+        const on = en.isIntersecting && en.intersectionRatio >= 0.5;
+        end.classList.toggle('lit', on);
+        if (on) {
           if (!endPlayed) {
             endPlayed = true;
             sfx.arp();
@@ -408,8 +493,8 @@ export function mount(data, root) {
         }
       }
     }
-  }, { threshold: 0.5 });
-  [s2, end, ...reveals.map((r) => r.sc)].forEach((n) => io.observe(n));
+  }, { threshold: [0, 0.1, 0.5] });
+  [s2, end, cardsScene].forEach((n) => io.observe(n));
   if (CFG.reduced) garden.classList.add('grown');
 
   document.addEventListener('visibilitychange', () => {
