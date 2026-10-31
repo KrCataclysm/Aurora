@@ -1,0 +1,211 @@
+:root {
+  --bg: #12081F;
+  --deep: #3B1A5A;
+  --glow: #8E5BD6;
+  --rose: #FF7BAC;
+  --petal: #FFC2D8;
+  --text: #F7EEF5;
+  --core: color-mix(in srgb, var(--rose) 60%, var(--deep));
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --hand: "Caveat", "Reenie Beanie", cursive;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+html {
+  background: var(--bg);
+  scroll-snap-type: y proximity;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+  font-size: 21px;
+  line-height: 1.65;
+  overflow-x: hidden;
+}
+body.locked { overflow: hidden; }
+
+#stars { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: none; }
+body.ready #stars { display: block; }
+#root { position: relative; z-index: 1; }
+
+:focus-visible { outline: 2px solid var(--petal); outline-offset: 3px; }
+
+.err {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-size: 16px;
+  text-align: center;
+}
+
+/* S0 */
+.gate {
+  position: fixed; inset: 0; z-index: 40;
+  transition: opacity .9s ease;
+}
+body.locked .scene { visibility: hidden; }
+.gate.gone { opacity: 0; pointer-events: none; }
+.gate-btn {
+  position: absolute; inset: 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; background: transparent; border: 0; color: var(--text);
+  font: inherit; cursor: pointer; text-align: center;
+}
+.gate-a { font-size: 16px; color: var(--petal); }
+.gate-b { font-size: clamp(28px, 8vw, 40px); line-height: 1.2; font-weight: 500; max-width: 18ch; }
+
+.mute {
+  position: fixed; z-index: 45;
+  top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  width: 44px; height: 44px; padding: 8px;
+  background: transparent; border: 1px solid color-mix(in srgb, var(--petal) 50%, transparent);
+  color: var(--petal); cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .6s;
+}
+body.started .mute { opacity: 1; pointer-events: auto; }
+.mute svg { width: 100%; height: 100%; }
+.ico { fill: currentColor; stroke: none; }
+.ico.line { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.mute .off { display: none; }
+.mute.off .off { display: inline; }
+.mute.off path:nth-child(2) { display: none; }
+
+.progress {
+  position: fixed; top: 0; right: max(5px, env(safe-area-inset-right)); z-index: 30;
+  width: 2px; height: 100dvh; background: var(--rose);
+  transform-origin: top; transform: scaleY(0); pointer-events: none;
+}
+
+.petals { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 25; pointer-events: none; }
+
+/* scenes */
+.scene {
+  position: relative;
+  min-height: 100dvh;
+  scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(28px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  overflow: hidden;
+}
+
+/* S1 */
+.aurora {
+  position: absolute; inset: -25%; pointer-events: none; opacity: .9;
+  background:
+    radial-gradient(40% 35% at 25% 30%, color-mix(in srgb, var(--glow) 55%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 75% 65%, color-mix(in srgb, var(--deep) 90%, transparent), transparent 70%),
+    radial-gradient(30% 30% at 60% 20%, color-mix(in srgb, var(--glow) 35%, transparent), transparent 70%);
+  filter: blur(48px);
+  animation: drift 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes drift {
+  from { transform: translate3d(-3%, -2%, 0) rotate(-3deg) scale(1); }
+  to { transform: translate3d(3%, 3%, 0) rotate(4deg) scale(1.08); }
+}
+.s1 { padding: 0; }
+.stage { position: absolute; inset: 0; transform-origin: 50% 56%; }
+.stage canvas { position: absolute; inset: 0; }
+.title {
+  position: absolute; z-index: 2; left: 56px; right: 56px;
+  top: calc(max(16px, env(safe-area-inset-top)) + 4dvh);
+  text-align: center; font-weight: 500; font-size: clamp(40px, 10vw, 56px); line-height: 1.1;
+  opacity: 0; transition: opacity 1.8s ease;
+}
+.title.show { opacity: 1; }
+
+/* S2 */
+.s2 { min-height: 100dvh; }
+.garden { position: absolute; left: 0; right: 0; bottom: 0; height: 52%; }
+.flower {
+  position: absolute; padding: 0; background: none; border: 0; cursor: pointer;
+  min-width: 44px; min-height: 44px;
+  transform: scale(0); transform-origin: 50% 70%;
+}
+.flower svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.f1 { fill: var(--petal); stroke: color-mix(in srgb, var(--rose) 60%, var(--deep)); stroke-width: .5; }
+.f2 { fill: var(--rose); stroke: color-mix(in srgb, var(--rose) 60%, var(--deep)); stroke-width: .5; }
+.core { fill: var(--core); }
+.grown .flower { animation: grow 1.5s cubic-bezier(.2, .9, .3, 1) var(--d) both; }
+@keyframes grow { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* text */
+.prose {
+  max-width: 58ch; width: 100%;
+  font-size: 21px; line-height: 1.65; font-weight: 400;
+  text-wrap: pretty;
+}
+.prose.center { text-align: center; }
+.w { opacity: 0; transition: opacity .6s ease; }
+.w.on { opacity: 1; }
+.with-cards { justify-content: center; }
+
+.cards { display: flex; gap: 10px; width: 100%; max-width: 560px; margin-top: 28px; }
+.card {
+  flex: 1; min-width: 0; min-height: 150px; padding: 0; background: none; border: 0;
+  color: inherit; font: inherit; cursor: pointer; perspective: 800px;
+}
+.in {
+  display: block; position: relative; width: 100%; height: 150px;
+  transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3, .7, .2, 1);
+}
+.card.flip .in { transform: rotateY(180deg); }
+.face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 12px; text-align: center; border-radius: 18px; backface-visibility: hidden;
+  overflow-wrap: anywhere;
+}
+.front {
+  font-size: 19px; line-height: 1.3;
+  background: linear-gradient(160deg, var(--deep), color-mix(in srgb, var(--deep) 65%, var(--rose)));
+  border: 1px solid color-mix(in srgb, var(--petal) 55%, transparent);
+}
+.back {
+  transform: rotateY(180deg); background: var(--petal); color: var(--bg);
+  font-family: var(--hand); font-size: 24px; line-height: 1.2;
+}
+.eq { display: flex; align-items: flex-end; gap: 4px; width: 100%; max-width: 560px; height: 48px; margin-top: 28px; }
+.eq i { flex: 1; height: 100%; background: var(--rose); opacity: .85; transform-origin: bottom; transform: scaleY(.12); }
+
+/* end */
+.end::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 2s;
+  background: radial-gradient(55% 45% at 50% 50%, color-mix(in srgb, var(--glow) 40%, transparent), transparent 70%);
+}
+.end.in::before { opacity: 1; }
+.end > * { position: relative; }
+.closing { max-width: 22ch; text-align: center; font-weight: 500; font-size: clamp(28px, 7.5vw, 40px); line-height: 1.25; }
+.mini { width: 120px; height: 120px; margin: 28px 0 12px; overflow: visible; }
+.mini-path {
+  fill: none; stroke: var(--rose); stroke-width: .7; stroke-linejoin: round;
+  transform-origin: center; animation: beat 2.4s ease-in-out infinite;
+}
+@keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+.sig { font-family: var(--hand); font-size: 30px; line-height: 1.2; color: var(--petal); text-align: center; }
+.again {
+  margin-top: 36px; min-height: 44px; padding: 8px 22px;
+  background: transparent; border: 1px solid var(--rose); color: var(--text);
+  font: inherit; font-size: 18px; cursor: pointer;
+}
+
+@media (min-width: 720px) {
+  .prose { font-size: 22px; }
+  .garden { height: 46%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .aurora, .mini-path { animation: none; }
+  .flower { transform: scale(1); }
+  .grown .flower { animation: none; }
+  .w { transition: none; opacity: 1; }
+  .in { transition: none; }
+  .title { transition: none; }
+}
