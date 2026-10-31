@@ -1,0 +1,6 @@
+TASK.md
+CLAUDE.md
+payload.dev.enc.json
+node_modules/
+*.log
+.DS_Store
