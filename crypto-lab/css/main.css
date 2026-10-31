@@ -58,6 +58,14 @@ body.locked .scene { visibility: hidden; }
   padding: 24px; background: transparent; border: 0; color: var(--text);
   font: inherit; cursor: pointer; text-align: center;
 }
+.gate-btn::before {
+  content: ""; position: absolute; width: min(84vw, 440px); aspect-ratio: 1; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 30%, transparent), transparent);
+  animation: breathe 5s ease-in-out infinite;
+}
+@keyframes breathe { 50% { transform: scale(1.14); opacity: .65; } }
+.gate-btn span { position: relative; display: block; transition: transform .9s ease, opacity .9s ease; }
+.gate.gone .gate-btn span { transform: translateY(-10px) scale(.98); opacity: 0; }
 .gate-a { font-size: 16px; color: var(--petal); }
 .gate-b { font-size: clamp(28px, 8vw, 40px); line-height: 1.2; font-weight: 500; max-width: 18ch; }
 
@@ -97,7 +105,7 @@ body.started .mute { opacity: 1; pointer-events: auto; }
 
 /* S1 */
 .aurora {
-  position: absolute; inset: -25%; pointer-events: none; opacity: .9;
+  position: fixed; inset: -25%; pointer-events: none; opacity: .9;
   background:
     radial-gradient(40% 35% at 25% 30%, color-mix(in srgb, var(--glow) 55%, transparent), transparent 70%),
     radial-gradient(45% 40% at 75% 65%, color-mix(in srgb, var(--deep) 90%, transparent), transparent 70%),
@@ -117,9 +125,9 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   position: absolute; z-index: 2; left: 56px; right: 56px;
   top: calc(max(16px, env(safe-area-inset-top)) + 4dvh);
   text-align: center; font-weight: 500; font-size: clamp(40px, 10vw, 56px); line-height: 1.1;
-  opacity: 0; transition: opacity 1.8s ease;
+  opacity: 0; filter: blur(8px); transition: opacity 1.8s ease, filter 1.8s ease;
 }
-.title.show { opacity: 1; }
+.title.show { opacity: 1; filter: blur(0); }
 
 /* S2 */
 .s2 { min-height: 100dvh; }
@@ -129,6 +137,8 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   min-width: 44px; min-height: 44px;
   transform: scale(0); transform-origin: 50% 70%;
 }
+.flower:active { transform: scale(1.06); transition: transform .15s; }
+.card:active { transform: scale(.97); }
 .flower svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .f1 { fill: var(--petal); stroke: color-mix(in srgb, var(--rose) 60%, var(--deep)); stroke-width: .5; }
 .f2 { fill: var(--rose); stroke: color-mix(in srgb, var(--rose) 60%, var(--deep)); stroke-width: .5; }
@@ -152,11 +162,11 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   flex: 1; min-width: 0; min-height: 150px; padding: 0; background: none; border: 0;
   color: inherit; font: inherit; cursor: pointer; perspective: 800px;
 }
-.in {
+.card-in {
   display: block; position: relative; width: 100%; height: 150px;
   transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3, .7, .2, 1);
 }
-.card.flip .in { transform: rotateY(180deg); }
+.card.flip .card-in { transform: rotateY(180deg); }
 .face {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   padding: 12px; text-align: center; border-radius: 18px; backface-visibility: hidden;
@@ -179,7 +189,7 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 2s;
   background: radial-gradient(55% 45% at 50% 50%, color-mix(in srgb, var(--glow) 40%, transparent), transparent 70%);
 }
-.end.in::before { opacity: 1; }
+.end.lit::before { opacity: 1; }
 .end > * { position: relative; }
 .closing { max-width: 22ch; text-align: center; font-weight: 500; font-size: clamp(28px, 7.5vw, 40px); line-height: 1.25; }
 .mini { width: 120px; height: 120px; margin: 28px 0 12px; overflow: visible; }
@@ -206,6 +216,8 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   .flower { transform: scale(1); }
   .grown .flower { animation: none; }
   .w { transition: none; opacity: 1; }
-  .in { transition: none; }
+  .card-in { transition: none; }
+  .gate-btn::before { animation: none; }
+  .title { filter: none; }
   .title { transition: none; }
 }

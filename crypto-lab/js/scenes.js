@@ -146,7 +146,6 @@ export function mount(data, root) {
 
   /* S1 curve */
   const s1 = el('section', 'scene s1');
-  s1.appendChild(el('div', 'aurora'));
   const stage = el('div', 'stage');
   const line = el('canvas');
   const mosaic = el('canvas');
@@ -207,7 +206,7 @@ export function mount(data, root) {
         const card = el('button', 'card');
         card.type = 'button';
         card.setAttribute('aria-pressed', 'false');
-        const inner = el('span', 'in');
+        const inner = el('span', 'card-in');
         inner.append(el('span', 'face front', c.f), el('span', 'face back', c.b));
         card.appendChild(inner);
         card.addEventListener('click', () => {
@@ -239,7 +238,9 @@ export function mount(data, root) {
 
   const progress = el('div', 'progress');
   progress.setAttribute('aria-hidden', 'true');
-  root.append(gate, mute, progress, petalCanvas(), ...scenes);
+  const aurora = el('div', 'aurora');
+  aurora.setAttribute('aria-hidden', 'true');
+  root.append(aurora, gate, mute, progress, petalCanvas(), ...scenes);
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
@@ -330,7 +331,7 @@ export function mount(data, root) {
         } else if (!en.isIntersecting) eqOn = false;
       }
       if (t === end) {
-        end.classList.toggle('in', en.isIntersecting);
+        end.classList.toggle('lit', en.isIntersecting);
         if (en.isIntersecting) {
           if (!endPlayed) {
             endPlayed = true;
