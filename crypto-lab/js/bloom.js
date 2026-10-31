@@ -24,6 +24,9 @@ export function createBloom(canvas, cb = {}) {
   });
   palette.push(rgb(mix(PETAL, DEEP, 0.6)));
   const SOIL = 7;
+  const VIOLET = hex(css.getPropertyValue('--violet').trim());
+  const LAV = hex(css.getPropertyValue('--lav').trim());
+  palette.push(rgb(mix(VIOLET, DEEP, 0.45)), rgb(VIOLET), rgb(LAV));
 
   let w = 0;
   let h = 0;
@@ -78,7 +81,7 @@ export function createBloom(canvas, cb = {}) {
       const s = Math.random();
       add({
         hx: stemX(s) + rnd(-1.4, 1.4) * (1.15 - 0.55 * s), hy: y0 - s * stemLen, bx: cx, by: y0,
-        t0: 900 + s * 2000, dur: 460, ci: 4 + Math.floor(rnd(0, 2.2)), sz: rnd(1, 1.9) * ps, sw: s * 0.4,
+        t0: 900 + s * 2000, dur: 460, ci: 8 + Math.floor(rnd(0, 2.4)), sz: rnd(1, 1.9) * ps, sw: s * 0.4,
       });
     }
 
@@ -101,7 +104,7 @@ export function createBloom(canvas, cb = {}) {
           hx: sx + dir[0] * t * Ll + perp[0] * u * hw,
           hy: sy + dir[1] * t * Ll + perp[1] * u * hw + t * t * Ll * 0.2,
           bx: sx, by: sy, t0: 2400 + li * 450 + t * 700, dur: 760,
-          ci: rib || edge ? 5 : 4, sz: rnd(1, 1.8) * ps, sw: s * 0.4 + t * 0.35,
+          ci: rib ? 10 : edge ? 9 : 8, sz: rnd(1, 1.8) * ps, sw: s * 0.4 + t * 0.35,
         });
       }
     });

@@ -46,81 +46,100 @@ function fit(canvas) {
 function layout(w, h) {
   const wide = w / h > 1.5;
   const s = Math.min((w * 0.9) / 32, (h * (wide ? 0.6 : 0.54)) / 29);
-  return { s, cx: w / 2, cy: h * (wide ? 0.6 : 0.5) };
+  return { s, cx: w / 2, cy: h * (wide ? 0.6 : h < 700 ? 0.54 : 0.5) };
 }
 const toXY = (t, L) => {
   const p = pt(t);
   return [L.cx + p.x * L.s, L.cy - (p.y + 2.5) * L.s];
 };
 
-/* Lays the phrases out inside the curve. Runs in small time slices so the
-   main thread stays free while the curve is being drawn. */
+/* Sets the phrases in centred lines that follow the outline of the curve,
+   each phrase once, never crossing the edge. Runs in small time slices so
+   the main thread stays free while the curve is being drawn. */
 async function buildItems(pts, L, w, h, phrases, isDead) {
   try { await document.fonts.ready; } catch (e) { /* fonts are optional */ }
-  const path = new Path2D();
-  pts.forEach((p, i) => (i ? path.lineTo(p[0], p[1]) : path.moveTo(p[0], p[1])));
-  path.closePath();
-  const hit = document.createElement('canvas').getContext('2d');
   const mk = document.createElement('canvas').getContext('2d');
   const rose = hex(css('--rose'));
   const petal = hex(css('--petal'));
-  const cell = Math.max(6, L.s * 0.5);
-  const cols = Math.ceil(w / cell);
-  const taken = new Set();
-  const cap = CFG.lowEnd ? 120 : CFG.maxWords;
-  const order = shuffle(phrases.slice());
+  const violet = hex(css('--violet'));
+  const lav = hex(css('--lav'));
+  const fs = Math.min(20, Math.max(11, L.s * 1.18));
+  const font = `italic 300 ${fs}px ${FONT}`;
+  mk.font = font;
+  const remaining = shuffle(phrases.slice()).map((text) => ({ text, tw: Math.ceil(mk.measureText(text).width) }));
+  if (!remaining.length) return [];
+  const minW = Math.min(...remaining.map((p) => p.tw));
+  const crossings = (y) => {
+    const xs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i];
+      const [x2, y2] = pts[i + 1];
+      if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + ((y - y1) / (y2 - y1)) * (x2 - x1));
+    }
+    xs.sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]]);
+    return out;
+  };
+  const top = Math.min(...pts.map((p) => p[1]));
+  const bottom = Math.max(...pts.map((p) => p[1]));
+  const pitch = fs * 1.9;
+  const th = Math.ceil(fs * 1.6);
   const items = [];
+  const mkSprite = (text, tw, color) => {
+    const sp = document.createElement('canvas');
+    sp.width = Math.ceil((tw + 6) * CFG.dpr);
+    sp.height = Math.ceil(th * CFG.dpr);
+    const sc = sp.getContext('2d');
+    sc.scale(CFG.dpr, CFG.dpr);
+    sc.font = font;
+    sc.textAlign = 'center';
+    sc.textBaseline = 'middle';
+    if (RTL.test(text)) sc.direction = 'rtl';
+    sc.fillStyle = color;
+    sc.fillText(text, (tw + 6) / 2, th / 2);
+    return sp;
+  };
   let t0 = performance.now();
-  for (let k = 0, tries = 0; items.length < cap && tries < cap * 4 && order.length; k++, tries++) {
+  let row = 0;
+  for (let y = top + pitch * 0.9; y < bottom - pitch * 0.5; y += pitch, row++) {
     if (isDead()) return items;
     if (performance.now() - t0 > 5) {
       await nextFrame();
       t0 = performance.now();
     }
-    const text = order[k % order.length];
-    let size = L.s * (0.8 + Math.random() * 1.0);
-    const rot = (Math.random() - 0.5) * 0.5;
-    mk.font = `italic 300 ${size}px ${FONT}`;
-    const w0 = mk.measureText(text).width;
-    if (w0 > L.s * 11) {
-      size *= (L.s * 11) / w0;
-      mk.font = `italic 300 ${size}px ${FONT}`;
-    }
-    const tw = Math.ceil(mk.measureText(text).width) + 8;
-    const th = Math.ceil(size * 1.5);
-    const hw = (tw * Math.abs(Math.cos(rot)) + th * Math.abs(Math.sin(rot))) / 2;
-    const hh = (th * Math.abs(Math.cos(rot)) + tw * Math.abs(Math.sin(rot))) / 2;
-    let placed = null;
-    for (let a = 0; a < 40 && !placed; a++) {
-      const x = L.cx + (Math.random() - 0.5) * 32 * L.s;
-      const y = L.cy + (Math.random() - 0.5) * 30 * L.s;
-      const inside = [[0, 0], [-hw * 0.95, 0], [hw * 0.95, 0], [-hw * 0.9, -hh * 0.6], [hw * 0.9, hh * 0.6], [0, -hh * 0.7], [0, hh * 0.7]]
-        .every(([dx, dy]) => hit.isPointInPath(path, x + dx, y + dy));
-      if (!inside) continue;
-      const cells = [];
-      for (let gx = Math.floor((x - hw) / cell); gx <= Math.floor((x + hw) / cell); gx++) {
-        for (let gy = Math.floor((y - hh * 0.6) / cell); gy <= Math.floor((y + hh * 0.6) / cell); gy++) {
-          cells.push(gy * cols + gx);
-        }
+    const a = crossings(y - fs * 0.6);
+    const b = crossings(y + fs * 0.6);
+    const spans = [];
+    a.forEach(([l1, r1]) => b.forEach(([l2, r2]) => {
+      const l = Math.max(l1, l2) + fs * 0.7;
+      const r = Math.min(r1, r2) - fs * 0.7;
+      if (r - l >= minW) spans.push([l, r]);
+    }));
+    const pair = row % 2 ? [violet, lav] : [rose, petal];
+    spans.forEach(([l, r]) => {
+      const W = r - l;
+      const picks = [];
+      let used = 0;
+      for (let n = 0; n < 3; n++) {
+        const gap = picks.length ? fs * 1.1 : 0;
+        const k = remaining.findIndex((p) => used + gap + p.tw <= W);
+        if (k < 0) break;
+        const p = remaining.splice(k, 1)[0];
+        picks.push(p);
+        used += gap + p.tw;
       }
-      if (cells.some((c) => taken.has(c))) continue;
-      cells.forEach((c) => taken.add(c));
-      placed = { x, y };
-    }
-    if (!placed) continue;
-    const sp = document.createElement('canvas');
-    sp.width = Math.ceil(tw * CFG.dpr);
-    sp.height = Math.ceil(th * CFG.dpr);
-    const sc = sp.getContext('2d');
-    sc.scale(CFG.dpr, CFG.dpr);
-    sc.font = mk.font;
-    sc.textAlign = 'center';
-    sc.textBaseline = 'middle';
-    if (RTL.test(text)) sc.direction = 'rtl';
-    const t = Math.min(1, Math.max(0, (placed.y - (L.cy - 15 * L.s)) / (30 * L.s) + (Math.random() - 0.5) * 0.4));
-    sc.fillStyle = `rgb(${lerp(rose, petal, t).join(',')})`;
-    sc.fillText(text, tw / 2, th / 2);
-    items.push({ sp, tw, th, rot, ...placed, at: 0 });
+      if (!picks.length) return;
+      const sum = picks.reduce((s, p) => s + p.tw, 0);
+      const gap = picks.length > 1 ? Math.min((W - sum) / (picks.length - 1), fs * 2.4) : 0;
+      let x = l + (W - (sum + gap * (picks.length - 1))) / 2;
+      picks.forEach((p, k) => {
+        const t = Math.min(1, Math.max(0, (x + p.tw / 2 - L.cx) / (16 * L.s) * 0.5 + 0.5));
+        const color = `rgb(${lerp(pair[0], pair[1], t).join(',')})`;
+        items.push({ sp: mkSprite(p.text, p.tw, color), tw: p.tw + 6, th, rot: 0, x: x + p.tw / 2, y, at: row * 230 + k * 110 });
+        x += p.tw + gap;
+      });
+    });
   }
   return items;
 }
@@ -164,10 +183,8 @@ export function play(o) {
   const startMosaic = async () => {
     const items = await itemsP;
     if (st.dead) return;
-    const span = 4000;
-    shuffle(items.map((_, i) => i)).forEach((idx, rank) => {
-      items[idx].at = staticMode ? -1000 : (rank / items.length) * span;
-    });
+    const span = Math.max(1, ...items.map((it) => it.at));
+    if (staticMode) items.forEach((it) => { it.at = -1000; });
     const draw = (e) => {
       mc.clearRect(0, 0, w, h);
       for (const it of items) {
