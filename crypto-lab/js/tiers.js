@@ -20,6 +20,7 @@ export function createStack(canvas, phrases, cb = {}) {
   let w = 0;
   let h = 0;
   let rows = [];
+  let plate = null;
   let wicks = [];
   let smoke = [];
   let elapsed = 0;
@@ -63,7 +64,7 @@ export function createStack(canvas, phrases, cb = {}) {
         for (let guard = 0; guard < 8; guard++) {
           const s = order[idx % order.length];
           let size = fs * rnd(0.92, 1.12);
-          meas.font = `${size}px ${FONT}`;
+          meas.font = `italic 300 ${size}px ${FONT}`;
           let tw = meas.measureText(s).width;
           if (tw > Wt) {
             size *= Wt / tw;
@@ -86,7 +87,7 @@ export function createStack(canvas, phrases, cb = {}) {
         items.forEach((it) => {
           const base = mix(PETAL, ROSE, clamp(ri / (total - 1) + rnd(-0.15, 0.15)));
           sc.fillStyle = `rgb(${base.join(',')})`;
-          sc.font = `${it.size}px ${FONT}`;
+          sc.font = `italic 300 ${it.size}px ${FONT}`;
           sc.direction = RTL.test(it.s) ? 'rtl' : 'ltr';
           sc.textAlign = 'left';
           sc.fillText(it.s, x + (sc.direction === 'rtl' ? 0 : 0), rh / 2);
@@ -95,6 +96,8 @@ export function createStack(canvas, phrases, cb = {}) {
         rows.push({ sp, w: Wt + 4, h: rh, x: (w - Wt) / 2 - 2, y: yTop + ri * rh + ti * gap, at: 200 + (total - 1 - ri) * 140 });
       }
     });
+    const lastRow = rows[rows.length - 1];
+    plate = { x1: (w - W) / 2 - 14, x2: (w + W) / 2 + 14, y: lastRow.y + rh + 12 };
     const topW = W * tiers[0].f;
     const tops = elapsed > 0 ? wicks : [];
     wicks = Array.from({ length: N }, (_, i) => {
@@ -128,6 +131,15 @@ export function createStack(canvas, phrases, cb = {}) {
       ctx.drawImage(r.sp, r.x, r.y + (1 - a) * 6, r.w, r.h);
     }
     const topA = rows.length ? clamp((elapsed - rows[0].at) / 600) : 0;
+    if (plate) {
+      ctx.globalAlpha = clamp((elapsed - 100) / 900) * 0.5;
+      ctx.strokeStyle = petal;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plate.x1, plate.y);
+      ctx.lineTo(plate.x2, plate.y);
+      ctx.stroke();
+    }
     wicks.forEach((c, i) => {
       if (elapsed >= c.litAt && c.want === 0 && !c.out) {
         c.want = 1;
@@ -186,7 +198,7 @@ export function createStack(canvas, phrases, cb = {}) {
     ctx.globalAlpha = 1;
     if (!allOut && wicks.every((c) => c.out && c.lit < 0.05)) {
       allOut = true;
-      relightAt = elapsed + 3500;
+      relightAt = elapsed + 5000;
       if (cb.onAllOut) cb.onAllOut();
     }
     if (allOut && elapsed >= relightAt) {

@@ -45,8 +45,8 @@ function fit(canvas) {
 
 function layout(w, h) {
   const wide = w / h > 1.5;
-  const s = Math.min((w * 0.84) / 32, (h * (wide ? 0.6 : 0.5)) / 29);
-  return { s, cx: w / 2, cy: h * (wide ? 0.6 : 0.56) };
+  const s = Math.min((w * 0.9) / 32, (h * (wide ? 0.6 : 0.54)) / 29);
+  return { s, cx: w / 2, cy: h * (wide ? 0.6 : 0.5) };
 }
 const toXY = (t, L) => {
   const p = pt(t);
@@ -64,23 +64,28 @@ async function buildItems(pts, L, w, h, phrases, isDead) {
   const mk = document.createElement('canvas').getContext('2d');
   const rose = hex(css('--rose'));
   const petal = hex(css('--petal'));
-  const cell = Math.max(8, L.s * 0.9);
+  const cell = Math.max(6, L.s * 0.5);
   const cols = Math.ceil(w / cell);
   const taken = new Set();
   const cap = CFG.lowEnd ? 120 : CFG.maxWords;
   const order = shuffle(phrases.slice());
   const items = [];
   let t0 = performance.now();
-  for (let k = 0, tries = 0; items.length < cap && tries < cap * 3 && order.length; k++, tries++) {
+  for (let k = 0, tries = 0; items.length < cap && tries < cap * 4 && order.length; k++, tries++) {
     if (isDead()) return items;
     if (performance.now() - t0 > 5) {
       await nextFrame();
       t0 = performance.now();
     }
     const text = order[k % order.length];
-    const size = L.s * (1.1 + Math.random() * 1.5);
+    let size = L.s * (0.8 + Math.random() * 1.0);
     const rot = (Math.random() - 0.5) * 0.5;
-    mk.font = `${size}px ${FONT}`;
+    mk.font = `italic 300 ${size}px ${FONT}`;
+    const w0 = mk.measureText(text).width;
+    if (w0 > L.s * 11) {
+      size *= (L.s * 11) / w0;
+      mk.font = `italic 300 ${size}px ${FONT}`;
+    }
     const tw = Math.ceil(mk.measureText(text).width) + 8;
     const th = Math.ceil(size * 1.5);
     const hw = (tw * Math.abs(Math.cos(rot)) + th * Math.abs(Math.sin(rot))) / 2;
@@ -89,7 +94,7 @@ async function buildItems(pts, L, w, h, phrases, isDead) {
     for (let a = 0; a < 40 && !placed; a++) {
       const x = L.cx + (Math.random() - 0.5) * 32 * L.s;
       const y = L.cy + (Math.random() - 0.5) * 30 * L.s;
-      const inside = [[0, 0], [-hw * 0.6, 0], [hw * 0.6, 0], [0, -hh * 0.5], [0, hh * 0.5]]
+      const inside = [[0, 0], [-hw * 0.95, 0], [hw * 0.95, 0], [-hw * 0.9, -hh * 0.6], [hw * 0.9, hh * 0.6], [0, -hh * 0.7], [0, hh * 0.7]]
         .every(([dx, dy]) => hit.isPointInPath(path, x + dx, y + dy));
       if (!inside) continue;
       const cells = [];
@@ -137,7 +142,7 @@ export function play(o) {
   const drawNode = (i) => {
     lc.strokeStyle = petalC;
     lc.globalAlpha = 0.8;
-    lc.lineWidth = 1;
+    lc.lineWidth = 0.9;
     if (i > 0) {
       lc.beginPath();
       lc.moveTo(pts[i - 1][0], pts[i - 1][1]);
@@ -148,10 +153,10 @@ export function play(o) {
     lc.fillStyle = petalC;
     if (!CFG.lowEnd) {
       lc.shadowColor = roseC;
-      lc.shadowBlur = 8;
+      lc.shadowBlur = 6;
     }
     lc.beginPath();
-    lc.arc(pts[i][0], pts[i][1], 2.2, 0, TAU);
+    lc.arc(pts[i][0], pts[i][1], 1.7, 0, TAU);
     lc.fill();
     lc.shadowBlur = 0;
   };

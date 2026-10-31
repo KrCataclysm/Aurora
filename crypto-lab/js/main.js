@@ -57,15 +57,15 @@ function drawStars() {
   const w = innerWidth;
   const h = innerHeight;
   c.width = Math.round(w * CFG.dpr);
-  c.height = Math.round(h * 1.15 * CFG.dpr);
+  c.height = Math.round(h * CFG.dpr);
   const x = c.getContext('2d');
   x.setTransform(CFG.dpr, 0, 0, CFG.dpr, 0, 0);
-  const n = CFG.lowEnd ? 60 : 110;
+  const n = CFG.lowEnd ? 22 : 36;
   for (let i = 0; i < n; i++) {
-    x.globalAlpha = 0.15 + Math.random() * 0.5;
+    x.globalAlpha = 0.12 + Math.random() * 0.4;
     x.fillStyle = Math.random() < 0.3 ? '#FFC2D8' : '#F7EEF5';
     x.beginPath();
-    x.arc(Math.random() * w, Math.random() * h * 1.15, 0.4 + Math.random() * 1.1, 0, Math.PI * 2);
+    x.arc(Math.random() * w, Math.random() * h, 0.35 + Math.random() * 0.8, 0, Math.PI * 2);
     x.fill();
   }
 }
