@@ -52,6 +52,9 @@ async function boot() {
   mount(data, root);
 }
 
+/* a few fine motes of light that drift upward and breathe */
+let motes = [];
+let starLoop = false;
 function drawStars() {
   const c = document.getElementById('stars');
   const w = innerWidth;
@@ -60,14 +63,36 @@ function drawStars() {
   c.height = Math.round(h * CFG.dpr);
   const x = c.getContext('2d');
   x.setTransform(CFG.dpr, 0, 0, CFG.dpr, 0, 0);
-  const n = CFG.lowEnd ? 22 : 36;
-  for (let i = 0; i < n; i++) {
-    x.globalAlpha = 0.12 + Math.random() * 0.4;
-    x.fillStyle = Math.random() < 0.3 ? '#FFC2D8' : '#F7EEF5';
-    x.beginPath();
-    x.arc(Math.random() * w, Math.random() * h, 0.35 + Math.random() * 0.8, 0, Math.PI * 2);
-    x.fill();
-  }
+  const n = CFG.lowEnd ? 24 : 42;
+  const tint = ['#F7EEF5', '#FFC2D8', '#D6C6FA'];
+  motes = Array.from({ length: n }, () => ({
+    x: Math.random() * w, y: Math.random() * h, r: 0.4 + Math.random() * 0.9, a: 0.15 + Math.random() * 0.45,
+    ph: Math.random() * 6.28, vy: -(0.02 + Math.random() * 0.07), vx: (Math.random() - 0.5) * 0.03, c: tint[Math.floor(Math.random() * 3)],
+  }));
+  const paint = (t, k) => {
+    x.clearRect(0, 0, w, h);
+    for (const s of motes) {
+      s.x += s.vx * k;
+      s.y += s.vy * k;
+      if (s.y < -4) { s.y = h + 4; s.x = Math.random() * w; }
+      x.globalAlpha = s.a * (0.6 + 0.4 * Math.sin(t * 0.0012 + s.ph));
+      x.fillStyle = s.c;
+      x.beginPath();
+      x.arc(s.x, s.y, s.r, 0, 6.2832);
+      x.fill();
+    }
+    x.globalAlpha = 1;
+  };
+  paint(0, 0);
+  if (CFG.reduced || starLoop) return;
+  starLoop = true;
+  let last = performance.now();
+  const frame = (now) => {
+    paint(now, Math.min(now - last, 50) / 16.7);
+    last = now;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
 }
 
 boot();

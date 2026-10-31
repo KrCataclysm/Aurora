@@ -31,6 +31,7 @@ if (!Array.isArray(d.mosaic) || !d.mosaic.length) bad.push('mosaic: missing');
 else d.mosaic.forEach((s, i) => max(`mosaic[${i}]`, s, 40));
 if (!Array.isArray(d.blocks) || d.blocks.length < 1) bad.push('blocks: missing');
 else d.blocks.forEach((s, i) => max(`blocks[${i}]`, s, 420));
+if (d.puzzle) { max('puzzle.hint', d.puzzle.hint, 40); max('puzzle.done', d.puzzle.done, 80); }
 if (!Number.isInteger(d.cardsAt) || d.cardsAt < 0 || d.cardsAt >= (d.blocks?.length ?? 0)) bad.push('cardsAt: out of range');
 if (!Array.isArray(d.cards) || d.cards.length < 3) bad.push('cards: need 3');
 else d.cards.slice(0, 3).forEach((c, i) => { max(`cards[${i}].f`, c?.f, 20); max(`cards[${i}].b`, c?.b, 40); });

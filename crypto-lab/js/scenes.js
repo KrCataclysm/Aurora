@@ -3,6 +3,7 @@ import * as sfx from './sfx.js';
 import { play } from './curve.js';
 import { createBloom } from './bloom.js';
 import { createStack } from './tiers.js';
+import { createPuzzle } from './puzzle.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const TAU = Math.PI * 2;
@@ -20,12 +21,22 @@ const sv = (tag, attrs = {}) => {
 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const words = (node, text, cls) => {
+  text.split(/\s+/).filter(Boolean).forEach((w, i, a) => {
+    const sp = el('span', cls, w);
+    sp.style.setProperty('--i', i);
+    node.appendChild(sp);
+    if (i < a.length - 1) node.appendChild(document.createTextNode(' '));
+  });
+  return node;
+};
 
 /* ---------- petals: a few drifting, a few released by touch ---------- */
 const P = [];
 let pctx = null;
 let pRunning = false;
 let drift = false;
+let ambient = false;
 let colors = null;
 
 function petalCanvas() {
@@ -76,7 +87,7 @@ function runPetals() {
       pctx.fill();
       pctx.restore();
     }
-    if (P.length || drift) requestAnimationFrame(frame);
+    if (P.length || drift || ambient) requestAnimationFrame(frame);
     else {
       pRunning = false;
       pctx.clearRect(0, 0, innerWidth, innerHeight);
@@ -126,7 +137,7 @@ export function mount(data, root) {
   line.setAttribute('aria-hidden', 'true');
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
-  const title = el('h1', 'title', data.title);
+  const title = words(el('h1', 'title'), data.title, 'tw');
   const hint = el('p', 'hint', 'deslize para ler a mensagem inteira');
   const cue = el('div', 'cue');
   cue.setAttribute('aria-hidden', 'true');
@@ -180,7 +191,19 @@ export function mount(data, root) {
     scenes.push(sc);
   });
 
-  /* 4 · wishes, stacked */
+  /* 4 · a small puzzle */
+  const pz = data.puzzle || {};
+  const sp = el('section', 'scene puzzle');
+  const pzHint = el('p', 'puzzle-hint', pz.hint || 'monte o quebra-cabeça');
+  const pzCv = el('canvas');
+  pzCv.tabIndex = 0;
+  pzCv.setAttribute('role', 'application');
+  pzCv.setAttribute('aria-label', 'Quebra-cabeça: toque em uma peça e depois em outra para trocar; com o teclado, use as setas e Enter');
+  const pzDone = el('p', 'puzzle-done', pz.done || '');
+  sp.append(pzHint, pzCv, pzDone);
+  scenes.push(sp);
+
+  /* 5 · wishes, stacked */
   const s3 = el('section', 'scene cake');
   const stackCv = el('canvas', 'cake-cv');
   stackCv.setAttribute('aria-hidden', 'true');
@@ -195,9 +218,9 @@ export function mount(data, root) {
   s3.append(stackCv, wickLayer);
   scenes.push(s3);
 
-  /* 5 · closing */
+  /* 6 · closing */
   const end = el('section', 'scene end');
-  const closing = el('h2', 'closing', data.closing);
+  const closing = words(el('h2', 'closing'), data.closing, 'cw');
   const rule = el('div', 'rule');
   rule.setAttribute('aria-hidden', 'true');
   const sig = el('p', 'sig', data.sig);
@@ -246,16 +269,29 @@ export function mount(data, root) {
       title.style.fontSize = fs + 'px';
     }
   };
+  const puzzle = createPuzzle(pzCv, data.title, {
+    onSelect: () => sfx.click(),
+    onSwap: () => sfx.snap(),
+    onSolved: () => {
+      sp.classList.add('solved');
+      sfx.arp();
+      const r = pzCv.getBoundingClientRect();
+      for (let i = 0; i < 3; i++) release(r.left + r.width * (0.25 + 0.25 * i), r.top + r.height * 0.5);
+    },
+  });
+  if (CFG.dev) window.__puzzle = puzzle;
   const buildCanvases = () => {
     if (CFG.reduced) bloom.drawStatic();
     else bloom.rebuild();
     stack.rebuild();
+    puzzle.rebuild();
   };
   buildCanvases();
   fitTitle();
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => {
       stack.rebuild();
+      puzzle.rebuild();
       fitTitle();
     });
   }
@@ -293,6 +329,12 @@ export function mount(data, root) {
     gate.classList.add('gone');
     setTimeout(() => gate.remove(), 1000);
     runCurve(CFG.reduced);
+    if (!CFG.reduced) {
+      ambient = true;
+      setInterval(() => {
+        if (!document.hidden && P.length < 9) spawn(rnd(0, innerWidth), -10, rnd(-0.25, 0.25), rnd(0.35, 0.7), 0.001, rnd(3.5, 6.5));
+      }, 3600);
+    }
   });
 
   mute.addEventListener('click', () => {
