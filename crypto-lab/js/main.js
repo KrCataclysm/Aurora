@@ -45,6 +45,7 @@ async function boot() {
     return fail();
   }
   if (!valid(data)) return fail();
+  document.title = data.title;
   document.body.classList.add('ready', 'locked');
   drawStars();
   addEventListener('resize', drawStars);
