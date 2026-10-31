@@ -10,8 +10,8 @@ const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const EMOJI = /[\u{1F300}-\u{1FAFF}☀-➿️]/gu;
 
-/* A 3x3 jigsaw. Tap one piece, then another, to swap them. The picture is
-   drawn from the same stippled heart as the opening scene. */
+/* A 3x3 jigsaw that puts itself together, once, piece by piece. The picture
+   is the same stippled heart as the opening scene. Nothing to do but watch. */
 export function createPuzzle(canvas, title, cb = {}) {
   const ctx = canvas.getContext('2d');
   const css = getComputedStyle(document.documentElement);
@@ -36,6 +36,7 @@ export function createPuzzle(canvas, title, cb = {}) {
       [slots[i], slots[j]] = [slots[j], slots[i]];
     }
   } while (slots.filter((p, i) => p !== i).length < 7 && ++guard < 50);
+  if (CFG.reduced) slots.forEach((_, i) => { slots[i] = i; });
 
   let S = 300;
   let c = 100;
@@ -43,13 +44,10 @@ export function createPuzzle(canvas, title, cb = {}) {
   let pic = null;
   let paths = [];
   const pos = new Map();
-  let selected = -1;
-  let cursor = 0;
-  let focused = false;
-  let solved = false;
+  let started = false;
+  let solved = CFG.reduced;
   let solvedAt = 0;
   let raf = 0;
-  let anim = 0;
 
   const knob = (p, x0, y0, x1, y1, nx, ny, dir) => {
     if (!dir) {
@@ -139,7 +137,7 @@ export function createPuzzle(canvas, title, cb = {}) {
 
   function build() {
     const box = canvas.parentElement;
-    S = Math.round(clamp(Math.min((box.clientWidth - 40) / 1.2, 430, (box.clientHeight - 220) / 1.2), 200, 430) / G) * G;
+    S = Math.round(clamp(Math.min((box.clientWidth - 40) / 1.2, 430, (box.clientHeight - 260) / 1.2), 200, 430) / G) * G;
     c = S / G;
     pad = Math.round(c * 0.3);
     const W = S + pad * 2;
@@ -163,28 +161,26 @@ export function createPuzzle(canvas, title, cb = {}) {
     const q = pos.get(id);
     const r = Math.floor(id / G);
     const k = id % G;
+    const place = () => {
+      ctx.translate(q.x, q.y);
+      if (lift) {
+        ctx.translate(c / 2, c / 2);
+        ctx.scale(1.05, 1.05);
+        ctx.translate(-c / 2, -c / 2);
+      }
+    };
     ctx.save();
-    ctx.translate(q.x, q.y);
-    if (lift) {
-      ctx.translate(c / 2, c / 2);
-      ctx.scale(1.045, 1.045);
-      ctx.translate(-c / 2, -c / 2);
-    }
+    place();
     ctx.clip(paths[id]);
     ctx.drawImage(pic, -k * c, -r * c, S, S);
     ctx.restore();
     if (solved) return;
     ctx.save();
-    ctx.translate(q.x, q.y);
+    place();
+    ctx.lineWidth = lift ? 1.6 : 1;
+    ctx.strokeStyle = lift ? 'rgba(255,123,172,.9)' : 'rgba(255,194,216,.3)';
     if (lift) {
-      ctx.translate(c / 2, c / 2);
-      ctx.scale(1.045, 1.045);
-      ctx.translate(-c / 2, -c / 2);
-    }
-    ctx.lineWidth = lift ? 1.8 : 1;
-    ctx.strokeStyle = lift ? 'rgba(255,123,172,.95)' : 'rgba(255,194,216,.32)';
-    if (lift) {
-      ctx.shadowColor = 'rgba(255,123,172,.7)';
+      ctx.shadowColor = 'rgba(255,123,172,.65)';
       ctx.shadowBlur = 14;
     }
     ctx.stroke(paths[id]);
@@ -197,110 +193,75 @@ export function createPuzzle(canvas, title, cb = {}) {
     let moving = false;
     pos.forEach((q) => {
       if (q.t < 1) {
-        q.t = Math.min(1, q.t + 0.06);
-        const e = CFG.reduced ? 1 : ease(q.t);
+        q.t = Math.min(1, q.t + 0.034);
+        const e = ease(q.t);
         q.x = q.fx + (q.tx - q.fx) * e;
         q.y = q.fy + (q.ty - q.fy) * e;
         moving = true;
       }
     });
-    const order = slots.slice().sort((a, b) => (pos.get(a).t < 1 ? 1 : 0) - (pos.get(b).t < 1 ? 1 : 0));
-    order.forEach((id) => { if (slots.indexOf(id) !== selected) drawPiece(id, false); });
-    if (selected >= 0) drawPiece(slots[selected], true);
-    if (focused && !solved) {
-      const [x, y] = slotXY(cursor);
-      ctx.strokeStyle = 'rgba(255,194,216,.9)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 5]);
-      ctx.strokeRect(x + 3, y + 3, c - 6, c - 6);
-      ctx.setLineDash([]);
-    }
+    const ids = slots.slice().sort((a, b) => (pos.get(a).t < 1 ? 1 : 0) - (pos.get(b).t < 1 ? 1 : 0));
+    ids.forEach((id) => drawPiece(id, pos.get(id).t < 1 && !solved));
     if (solved) {
-      const f = clamp((now - solvedAt) / 1600);
+      const f = clamp((now - solvedAt) / 1800);
       const gl = ctx.createRadialGradient(W / 2, W / 2, 0, W / 2, W / 2, W * 0.62);
       gl.addColorStop(0, `rgba(255,123,172,${0.16 * (1 - f)})`);
       gl.addColorStop(1, 'rgba(255,123,172,0)');
       ctx.fillStyle = gl;
       ctx.fillRect(0, 0, W, W);
-      if (f < 1) moving = true;
+      if (f < 1 && solvedAt) moving = true;
     }
-    if (moving || selected >= 0) raf = requestAnimationFrame(draw);
-    else raf = 0;
+    raf = moving ? requestAnimationFrame(draw) : 0;
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(draw); };
 
-  function checkSolved() {
-    if (solved || !slots.every((id, i) => id === i)) return;
+  /* the piece that belongs in slot `to` glides there, and the one that was
+     there glides to the empty place it leaves behind */
+  function place(to) {
+    const from = slots.indexOf(to);
+    if (from === to) return false;
+    const a = slots[from];
+    const b = slots[to];
+    slots[from] = b;
+    slots[to] = a;
+    [[a, to], [b, from]].forEach(([id, slot]) => {
+      const q = pos.get(id);
+      const [tx, ty] = slotXY(slot);
+      Object.assign(q, { fx: q.x, fy: q.y, tx, ty, t: CFG.reduced ? 1 : 0 });
+    });
+    return true;
+  }
+
+  function finish() {
     solved = true;
     solvedAt = performance.now();
-    selected = -1;
     if (cb.onSolved) cb.onSolved();
     kick();
   }
 
-  function choose(i) {
-    if (solved || i < 0 || i >= G * G) return;
-    if (selected < 0) {
-      selected = i;
-      if (cb.onSelect) cb.onSelect();
-    } else if (selected === i) {
-      selected = -1;
-    } else {
-      const a = slots[selected];
-      const b = slots[i];
-      slots[selected] = b;
-      slots[i] = a;
-      [[a, i], [b, selected]].forEach(([id, slot]) => {
-        const q = pos.get(id);
-        const [tx, ty] = slotXY(slot);
-        Object.assign(q, { fx: q.x, fy: q.y, tx, ty, t: CFG.reduced ? 1 : 0 });
-      });
-      selected = -1;
-      if (cb.onSwap) cb.onSwap();
-      checkSolved();
-    }
-    kick();
+  function start() {
+    if (started || solved) return;
+    started = true;
+    const order = [4, 0, 8, 2, 6, 1, 7, 3, 5];
+    let i = 0;
+    const step = () => {
+      if (i >= order.length) {
+        finish();
+        return;
+      }
+      const moved = place(order[i++]);
+      if (moved) {
+        if (cb.onPlace) cb.onPlace();
+        kick();
+      }
+      setTimeout(step, moved ? 640 : 120);
+    };
+    setTimeout(step, 500);
   }
-
-  canvas.addEventListener('pointerdown', (e) => {
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left - pad;
-    const y = e.clientY - r.top - pad;
-    if (x < 0 || y < 0 || x >= S || y >= S) return;
-    cursor = Math.floor(y / c) * G + Math.floor(x / c);
-    choose(cursor);
-  });
-  canvas.addEventListener('keydown', (e) => {
-    const m = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -G, ArrowDown: G }[e.key];
-    if (m) {
-      e.preventDefault();
-      const col = (cursor % G) + (Math.abs(m) === 1 ? m : 0);
-      const next = cursor + m;
-      if (col >= 0 && col < G && next >= 0 && next < G * G) cursor = next;
-      kick();
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      choose(cursor);
-    }
-  });
-  canvas.addEventListener('focus', () => { focused = true; kick(); });
-  canvas.addEventListener('blur', () => { focused = false; kick(); });
 
   return {
     rebuild: build,
+    start,
     isSolved: () => solved,
-    solveNow() {
-      slots.forEach((_, i) => { slots[i] = i; });
-      slots.forEach((id, i) => {
-        const q = pos.get(id);
-        const [x, y] = slotXY(i);
-        Object.assign(q, { x, y, fx: x, fy: y, tx: x, ty: y, t: 1 });
-      });
-      checkSolved();
-    },
-    stop() {
-      cancelAnimationFrame(raf);
-      raf = 0;
-    },
   };
 }
