@@ -181,3 +181,10 @@ export function shimmer() {
   const t = ac.currentTime;
   [1568, 1976, 2349, 3136].forEach((f, i) => voice('sine', f, t + i * 0.08, 0.7, 0.1));
 }
+
+export function snap() {
+  if (!live()) return;
+  const t = ac.currentTime;
+  noise(t, 0.03, 'bandpass', 1800, 2, 0.28);
+  voice('triangle', 520, t, 0.07, 0.16);
+}

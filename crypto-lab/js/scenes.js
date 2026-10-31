@@ -3,6 +3,7 @@ import * as sfx from './sfx.js';
 import { play } from './curve.js';
 import { createBloom } from './bloom.js';
 import { createStack } from './tiers.js';
+import { createPuzzle } from './puzzle.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const TAU = Math.PI * 2;
@@ -20,12 +21,22 @@ const sv = (tag, attrs = {}) => {
 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const words = (node, text, cls) => {
+  text.split(/\s+/).filter(Boolean).forEach((w, i, a) => {
+    const sp = el('span', cls, w);
+    sp.style.setProperty('--i', i);
+    node.appendChild(sp);
+    if (i < a.length - 1) node.appendChild(document.createTextNode(' '));
+  });
+  return node;
+};
 
 /* ---------- petals: a few drifting, a few released by touch ---------- */
 const P = [];
 let pctx = null;
 let pRunning = false;
 let drift = false;
+let ambient = false;
 let colors = null;
 
 function petalCanvas() {
@@ -76,7 +87,7 @@ function runPetals() {
       pctx.fill();
       pctx.restore();
     }
-    if (P.length || drift) requestAnimationFrame(frame);
+    if (P.length || drift || ambient) requestAnimationFrame(frame);
     else {
       pRunning = false;
       pctx.clearRect(0, 0, innerWidth, innerHeight);
@@ -126,11 +137,9 @@ export function mount(data, root) {
   line.setAttribute('aria-hidden', 'true');
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
-  const title = el('h1', 'title', data.title);
-  const hint = el('p', 'hint', 'deslize para ler a mensagem inteira');
-  const cue = el('div', 'cue');
-  cue.setAttribute('aria-hidden', 'true');
-  s1.append(stage, title, hint, cue);
+  const title = words(el('h1', 'title'), data.title, 'tw');
+  const hint = el('p', 'hint', 'toque em continuar, ou deslize, para ler a mensagem inteira');
+  s1.append(stage, title, hint);
   scenes.push(s1);
 
   /* 2 · bloom */
@@ -180,7 +189,19 @@ export function mount(data, root) {
     scenes.push(sc);
   });
 
-  /* 4 · wishes, stacked */
+  /* 4 · a small puzzle */
+  const pz = data.puzzle || {};
+  const sp = el('section', 'scene puzzle');
+  const pzHint = el('p', 'puzzle-hint', pz.hint || 'monte o quebra-cabeça');
+  const pzCv = el('canvas');
+  pzCv.tabIndex = 0;
+  pzCv.setAttribute('role', 'application');
+  pzCv.setAttribute('aria-label', 'Quebra-cabeça: toque em uma peça e depois em outra para trocar; com o teclado, use as setas e Enter');
+  const pzDone = el('p', 'puzzle-done', pz.done || '');
+  sp.append(pzHint, pzCv, pzDone);
+  scenes.push(sp);
+
+  /* 5 · wishes, stacked */
   const s3 = el('section', 'scene cake');
   const stackCv = el('canvas', 'cake-cv');
   stackCv.setAttribute('aria-hidden', 'true');
@@ -195,9 +216,9 @@ export function mount(data, root) {
   s3.append(stackCv, wickLayer);
   scenes.push(s3);
 
-  /* 5 · closing */
+  /* 6 · closing */
   const end = el('section', 'scene end');
-  const closing = el('h2', 'closing', data.closing);
+  const closing = words(el('h2', 'closing'), data.closing, 'cw');
   const rule = el('div', 'rule');
   rule.setAttribute('aria-hidden', 'true');
   const sig = el('p', 'sig', data.sig);
@@ -207,9 +228,15 @@ export function mount(data, root) {
   end.append(closing, rule, sig, again);
   scenes.push(end);
 
+  const nextBtn = el('button', 'next');
+  nextBtn.type = 'button';
+  nextBtn.setAttribute('aria-label', 'Continuar');
+  const arrow = sv('svg', { viewBox: '0 0 18 30', 'aria-hidden': 'true' });
+  arrow.appendChild(sv('path', { d: 'M9 1v26M2.5 20.5L9 28l6.5-7.5', class: 'ico line' }));
+  nextBtn.append(el('span', 'next-t', 'continuar'), arrow);
   const progress = el('div', 'progress');
   progress.setAttribute('aria-hidden', 'true');
-  root.append(gate, mute, progress, petalCanvas(), ...scenes);
+  root.append(gate, mute, nextBtn, progress, petalCanvas(), ...scenes);
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
@@ -246,16 +273,29 @@ export function mount(data, root) {
       title.style.fontSize = fs + 'px';
     }
   };
+  const puzzle = createPuzzle(pzCv, data.title, {
+    onSelect: () => sfx.click(),
+    onSwap: () => sfx.snap(),
+    onSolved: () => {
+      sp.classList.add('solved');
+      sfx.arp();
+      const r = pzCv.getBoundingClientRect();
+      for (let i = 0; i < 3; i++) release(r.left + r.width * (0.25 + 0.25 * i), r.top + r.height * 0.5);
+    },
+  });
+  if (CFG.dev) window.__puzzle = puzzle;
   const buildCanvases = () => {
     if (CFG.reduced) bloom.drawStatic();
     else bloom.rebuild();
     stack.rebuild();
+    puzzle.rebuild();
   };
   buildCanvases();
   fitTitle();
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => {
       stack.rebuild();
+      puzzle.rebuild();
       fitTitle();
     });
   }
@@ -293,6 +333,12 @@ export function mount(data, root) {
     gate.classList.add('gone');
     setTimeout(() => gate.remove(), 1000);
     runCurve(CFG.reduced);
+    if (!CFG.reduced) {
+      ambient = true;
+      setInterval(() => {
+        if (!document.hidden && P.length < 9) spawn(rnd(0, innerWidth), -10, rnd(-0.25, 0.25), rnd(0.35, 0.7), 0.001, rnd(3.5, 6.5));
+      }, 3600);
+    }
   });
 
   mute.addEventListener('click', () => {
@@ -363,6 +409,57 @@ export function mount(data, root) {
     }
   }, { threshold: [0, 0.1, 0.35, 0.5] });
   reveals.forEach((r) => ioText.observe(r.sc));
+
+  /* the "continue" button: a slow, eased scroll to the next screen */
+  let scrollAnim = 0;
+  const root0 = document.documentElement;
+  const stopAnim = () => {
+    cancelAnimationFrame(scrollAnim);
+    root0.style.scrollSnapType = '';
+  };
+  ['wheel', 'touchstart', 'keydown'].forEach((ev) => addEventListener(ev, stopAnim, { passive: true }));
+  const smoothTo = (y) => {
+    if (CFG.reduced) {
+      scrollTo(0, y);
+      return;
+    }
+    cancelAnimationFrame(scrollAnim);
+    const y0 = scrollY;
+    const d = y - y0;
+    const t0 = performance.now();
+    const dur = clamp((Math.abs(d) / innerHeight) * 900 + 500, 700, 1500);
+    root0.style.scrollSnapType = 'none';
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      scrollTo(0, y0 + d * e);
+      if (t < 1) scrollAnim = requestAnimationFrame(step);
+      else root0.style.scrollSnapType = '';
+    };
+    scrollAnim = requestAnimationFrame(step);
+  };
+  const currentIdx = () => {
+    const y = scrollY + innerHeight * 0.5;
+    let k = 0;
+    scenes.forEach((sc, i) => { if (sc.offsetTop <= y) k = i; });
+    return k;
+  };
+  const refreshNext = () => {
+    const ready = started && s1.classList.contains('done');
+    nextBtn.classList.toggle('on', ready && currentIdx() < scenes.length - 1);
+  };
+  nextBtn.addEventListener('click', () => {
+    const i = currentIdx();
+    const r = reveals.find((x) => x.sc === scenes[i]);
+    if (r && !r.done) {
+      finish(r);
+      return;
+    }
+    if (scenes[i + 1]) smoothTo(scenes[i + 1].offsetTop);
+  });
+  addEventListener('scroll', refreshNext, { passive: true });
+  new MutationObserver(refreshNext).observe(s1, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', refreshNext);
 
   /* closing: a soft arpeggio and a few petals */
   let driftTimer = null;

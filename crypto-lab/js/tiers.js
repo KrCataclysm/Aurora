@@ -6,7 +6,7 @@ const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 const RTL = /[֐-׿؀-ۿݐ-ݿיִ-﷿ﹰ-﻿]/;
-const FONT = 'Fraunces, "Noto Sans", system-ui, "Segoe UI", sans-serif';
+const FONT = '"Cormorant Garamond", "Iowan Old Style", Georgia, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
 
 export function createStack(canvas, phrases, cb = {}) {
   const ctx = canvas.getContext('2d');
@@ -46,7 +46,7 @@ export function createStack(canvas, phrases, cb = {}) {
     const tiers = [{ n: 3, f: 0.52 }, { n: 3, f: 0.76 }, { n: 4, f: 1 }];
     const total = tiers.reduce((a, t) => a + t.n, 0);
     const gap = 10;
-    let fs = clamp(W * 0.046, 14, 24);
+    let fs = clamp(W * 0.054, 16, 28);
     const compFor = (f) => f * 3.6 + 30 + total * f * 1.8 + gap * (tiers.length - 1);
     if (compFor(fs) > h * 0.9) fs = Math.max(10, fs * ((h * 0.9) / compFor(fs)));
     const rh = fs * 1.8;
@@ -66,7 +66,7 @@ export function createStack(canvas, phrases, cb = {}) {
         for (let guard = 0; guard < 8; guard++) {
           const s = order[idx % order.length];
           let size = fs * rnd(0.92, 1.12);
-          meas.font = `italic 300 ${size}px ${FONT}`;
+          meas.font = `italic 500 ${size}px ${FONT}`;
           let tw = meas.measureText(s).width;
           if (tw > Wt) {
             size *= Wt / tw;
@@ -90,7 +90,7 @@ export function createStack(canvas, phrases, cb = {}) {
           const pair = ri % 2 ? [VIOLET, LAV] : [ROSE, PETAL];
           const base = mix(pair[1], pair[0], clamp(0.35 + rnd(-0.2, 0.3)));
           sc.fillStyle = `rgb(${base.join(',')})`;
-          sc.font = `italic 300 ${it.size}px ${FONT}`;
+          sc.font = `italic 500 ${it.size}px ${FONT}`;
           sc.direction = RTL.test(it.s) ? 'rtl' : 'ltr';
           sc.textAlign = 'left';
           sc.fillText(it.s, x + (sc.direction === 'rtl' ? 0 : 0), rh / 2);
