@@ -1,6 +1,8 @@
 import { CFG } from './config.js';
 import * as sfx from './sfx.js';
 import { play, miniPath } from './curve.js';
+import { createBloom } from './bloom.js';
+import { createStack } from './tiers.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const TAU = Math.PI * 2;
@@ -39,9 +41,9 @@ function petalCanvas() {
   return pc;
 }
 
-function spawn(x, y, vx, vy, g) {
+function spawn(x, y, vx, vy, g, size) {
   if (P.length >= CFG.maxParticles) return;
-  P.push({ x, y, vx, vy, g, r: rnd(0, TAU), vr: rnd(-0.08, 0.08), s: rnd(5, 11), c: Math.random() < 0.5 ? colors.rose : colors.petal });
+  P.push({ x, y, vx, vy, g, r: rnd(0, TAU), vr: rnd(-0.08, 0.08), s: size || rnd(5, 11), c: Math.random() < 0.5 ? colors.rose : colors.petal });
   runPetals();
 }
 
@@ -158,6 +160,8 @@ export function mount(data, root) {
 
   /* S2 flowers */
   const s2 = el('section', 'scene s2');
+  const bloomCv = el('canvas', 'bloom');
+  bloomCv.setAttribute('aria-hidden', 'true');
   const garden = el('div', 'garden');
   const nF = Math.min(14, Math.max(6, Math.round(innerWidth / 70)));
   for (let i = 0; i < nF; i++) {
@@ -179,8 +183,15 @@ export function mount(data, root) {
     });
     garden.appendChild(b);
   }
-  s2.appendChild(garden);
+  s2.append(bloomCv, garden);
   scenes.push(s2);
+
+  /* S2b stack */
+  const s3 = el('section', 'scene stack');
+  const stackCv = el('canvas', 'stack-cv');
+  stackCv.setAttribute('aria-hidden', 'true');
+  s3.appendChild(stackCv);
+  scenes.push(s3);
 
   /* S3+ text, cards */
   const reveals = [];
@@ -244,6 +255,47 @@ export function mount(data, root) {
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
+  const bloom = createBloom(bloomCv, {
+    onBloom: () => sfx.shimmer(),
+    onTap: (x, y) => {
+      const r = bloomCv.getBoundingClientRect();
+      burst(r.left + x, r.top + y);
+      sfx.petal();
+      sfx.pluck(4);
+    },
+  });
+  const stack = createStack(stackCv, phrases, {
+    onLight: (i, n) => sfx.bell(i, n),
+    onSnuff: () => {
+      sfx.click();
+      sfx.petal();
+    },
+    onAllOut: () => {
+      sfx.arp();
+      const r = stackCv.getBoundingClientRect();
+      for (let i = 0; i < 3; i++) burst(r.left + r.width * (0.3 + 0.2 * i), r.top + r.height * 0.35);
+    },
+  });
+  if (CFG.reduced) bloom.drawStatic();
+  else bloom.rebuild();
+  stack.rebuild();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => stack.rebuild());
+  const live = [[s2, CFG.reduced ? { start() {}, stop() {} } : bloom], [s3, stack]];
+  const io2 = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const o = live.find((l) => l[0] === en.target)[1];
+      if (en.isIntersecting) o.start();
+      else o.stop();
+    }
+  }, { threshold: 0.1 });
+  live.forEach((l) => io2.observe(l[0]));
+  if (!CFG.reduced) {
+    addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || !document.body.classList.contains('started')) return;
+      if (Math.random() < 0.3) spawn(e.clientX + rnd(-4, 4), e.clientY + rnd(-4, 4), rnd(-0.3, 0.3), rnd(0.1, 0.6), 0.004, rnd(2, 4));
+    });
+  }
+  const stars = document.getElementById('stars');
   const runCurve = (staticMode) => {
     if (curveRun) curveRun.cancel();
     title.classList.remove('show');
@@ -279,12 +331,17 @@ export function mount(data, root) {
     clearTimeout(rs);
     rs = setTimeout(() => {
       if (document.body.classList.contains('started') && title.classList.contains('show')) runCurve(true);
+      if (CFG.reduced) bloom.drawStatic();
+      else bloom.rebuild();
+      stack.rebuild();
     }, 250);
   });
 
   const onScroll = () => {
     const max = document.documentElement.scrollHeight - innerHeight;
-    progress.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
+    const p = max > 0 ? Math.min(1, scrollY / max) : 0;
+    progress.style.transform = `scaleY(${p})`;
+    if (stars) stars.style.transform = `translateY(${((0.5 - p) * 0.14 * innerHeight).toFixed(1)}px)`;
   };
   addEventListener('scroll', onScroll, { passive: true });
 

@@ -30,7 +30,7 @@ body {
 }
 body.locked { overflow: hidden; }
 
-#stars { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: none; }
+#stars { position: fixed; top: -7.5dvh; left: 0; width: 100%; height: 115dvh; z-index: 0; display: none; will-change: transform; }
 body.ready #stars { display: block; }
 #root { position: relative; z-index: 1; }
 
@@ -146,6 +146,9 @@ body.started .mute { opacity: 1; pointer-events: auto; }
 .grown .flower { animation: grow 1.5s cubic-bezier(.2, .9, .3, 1) var(--d) both; }
 @keyframes grow { from { transform: scale(0); } to { transform: scale(1); } }
 
+.bloom, .stack-cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.stack { padding: 0; }
+
 /* text */
 .prose {
   max-width: 58ch; width: 100%;
@@ -153,8 +156,8 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   text-wrap: pretty;
 }
 .prose.center { text-align: center; }
-.w { opacity: 0; transition: opacity .6s ease; }
-.w.on { opacity: 1; }
+.w { opacity: 0; color: var(--rose); transition: opacity .6s ease, color 1.8s ease .15s; }
+.w.on { opacity: 1; color: var(--text); }
 .with-cards { justify-content: center; }
 
 .cards { display: flex; gap: 10px; width: 100%; max-width: 560px; margin-top: 28px; }
@@ -215,7 +218,7 @@ body.started .mute { opacity: 1; pointer-events: auto; }
   .aurora, .mini-path { animation: none; }
   .flower { transform: scale(1); }
   .grown .flower { animation: none; }
-  .w { transition: none; opacity: 1; }
+  .w { transition: none; opacity: 1; color: var(--text); }
   .card-in { transition: none; }
   .gate-btn::before { animation: none; }
   .title { filter: none; }

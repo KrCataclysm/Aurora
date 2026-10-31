@@ -175,3 +175,9 @@ export function arp() {
     voice('sine', f * 2.76, t + i * 0.09, 0.2, 0.06);
   }
 }
+
+export function shimmer() {
+  if (!live()) return;
+  const t = ac.currentTime;
+  [1568, 1976, 2349, 3136].forEach((f, i) => voice('sine', f, t + i * 0.08, 0.7, 0.1));
+}
