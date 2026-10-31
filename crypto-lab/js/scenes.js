@@ -162,6 +162,7 @@ export function mount(data, root) {
       data.cards.slice(0, 3).forEach((c, ci) => {
         const card = el('button', 'card');
         card.type = 'button';
+        card.style.setProperty('--i', ci);
         card.setAttribute('aria-pressed', 'false');
         const inner = el('span', 'card-in');
         inner.append(el('span', 'face front', c.f), el('span', 'face back', c.b));
@@ -202,6 +203,7 @@ export function mount(data, root) {
   const sig = el('p', 'sig', data.sig);
   const again = el('button', 'again', 'Ver de novo');
   again.type = 'button';
+  [closing, rule, sig, again].forEach((n, k) => n.style.setProperty('--i', k));
   end.append(closing, rule, sig, again);
   scenes.push(end);
 
@@ -238,7 +240,7 @@ export function mount(data, root) {
   const fitTitle = () => {
     title.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(title).fontSize);
-    const max = s1.clientHeight * 0.22;
+    const max = s1.clientHeight * 0.2;
     while (title.offsetHeight > max && fs > 26) {
       fs -= 2;
       title.style.fontSize = fs + 'px';
@@ -326,12 +328,14 @@ export function mount(data, root) {
     const max = document.documentElement.scrollHeight - innerHeight;
     progress.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
     document.body.classList.toggle('scrolled', scrollY > 40);
+    s1.style.setProperty('--out', clamp(scrollY / (innerHeight * 0.8), 0, 1).toFixed(3));
   }, { passive: true });
 
   /* the letter: words appear as the page settles; leaving the screen or tapping finishes it */
   const finish = (r) => {
     if (r.done) return;
     clearInterval(r.timer);
+    clearTimeout(r.timer);
     r.done = true;
     r.spans.forEach((s) => s.classList.add('on', 'now'));
   };
@@ -339,18 +343,22 @@ export function mount(data, root) {
   const ioText = new IntersectionObserver((entries) => {
     for (const en of entries) {
       const r = reveals.find((x) => x.sc === en.target);
-      if (!r || r.done) continue;
+      if (!r) continue;
+      if (en.isIntersecting && en.intersectionRatio >= 0.15) r.sc.classList.add('seen');
+      if (r.done) continue;
       const seen = en.isIntersecting && (en.intersectionRatio >= 0.35 || en.intersectionRect.height >= innerHeight * 0.5);
       if (seen && !r.started) {
         r.started = true;
-        r.timer = setInterval(() => {
-          if (r.k >= r.spans.length) {
-            clearInterval(r.timer);
-            r.done = true;
-            return;
-          }
-          r.spans[r.k++].classList.add('on');
-        }, 130);
+        r.timer = setTimeout(() => {
+          r.timer = setInterval(() => {
+            if (r.k >= r.spans.length) {
+              clearInterval(r.timer);
+              r.done = true;
+              return;
+            }
+            r.spans[r.k++].classList.add('on');
+          }, 42);
+        }, 380);
       } else if (!en.isIntersecting && r.started) finish(r);
     }
   }, { threshold: [0, 0.1, 0.35, 0.5] });
