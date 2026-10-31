@@ -138,8 +138,7 @@ export function mount(data, root) {
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
   const title = words(el('h1', 'title'), data.title, 'tw');
-  const hint = el('p', 'hint', 'toque em continuar, ou deslize, para ler a mensagem inteira');
-  s1.append(stage, title, hint);
+  s1.append(stage, title);
   scenes.push(s1);
 
   /* 2 · bloom */
@@ -149,56 +148,57 @@ export function mount(data, root) {
   s2.appendChild(bloomCv);
   scenes.push(s2);
 
-  /* 3 · the letter, one screen per block */
-  const reveals = [];
-  let cardsScene = null;
-  data.blocks.forEach((text, i) => {
-    const sc = el('section', 'scene text ' + (i % 2 ? 'tone-b' : 'tone-a'));
-    const p = el('p', 'prose');
-    const spaced = /\s/.test(text);
-    const parts = spaced ? text.split(/\s+/).filter(Boolean) : text.match(/.{1,2}/gu) || [];
-    const spans = parts.map((w, k) => {
-      const sp = el('span', 'w' + (CFG.reduced ? ' on' : ''), w);
-      p.appendChild(sp);
-      if (spaced && k < parts.length - 1) p.appendChild(document.createTextNode(' '));
-      return sp;
-    });
-    reveals.push({ sc, p, spans, started: false, done: CFG.reduced, k: 0, timer: 0 });
-    sc.appendChild(p);
-    if (i === cardsAt) {
-      cardsScene = sc;
-      const row = el('div', 'cards');
-      data.cards.slice(0, 3).forEach((c, ci) => {
-        const card = el('button', 'card');
-        card.type = 'button';
-        card.style.setProperty('--i', ci);
-        card.setAttribute('aria-pressed', 'false');
-        const inner = el('span', 'card-in');
-        inner.append(el('span', 'face front', c.f), el('span', 'face back', c.b));
-        card.appendChild(inner);
-        card.addEventListener('click', () => {
-          const on = card.classList.toggle('flip');
-          card.setAttribute('aria-pressed', String(on));
-          sfx.click();
-          if (on && ci === 2) sfx.chord();
+  /* 3 · the letter: short thoughts share a screen so the reading stays light */
+  const textScenes = [];
+  const groups = [];
+  const tall = innerHeight >= 720;
+  for (let i = 0; i < data.blocks.length;) {
+    const pair = tall && i !== cardsAt && i + 1 < data.blocks.length && i + 1 !== cardsAt
+      && data.blocks[i].length + data.blocks[i + 1].length <= 420;
+    groups.push(pair ? [i, i + 1] : [i]);
+    i += pair ? 2 : 1;
+  }
+  groups.forEach((group) => {
+    const sc = el('section', 'scene text ' + (group[0] % 2 ? 'tone-b' : 'tone-a'));
+    group.forEach((idx, k) => {
+      const p = el('p', 'prose ' + (idx % 2 ? 'tone-b' : 'tone-a') + (k ? ' cont' : ''), data.blocks[idx]);
+      p.style.setProperty('--p', k);
+      sc.appendChild(p);
+      if (idx === cardsAt) {
+        const row = el('div', 'cards');
+        data.cards.slice(0, 3).forEach((c, ci) => {
+          const card = el('button', 'card');
+          card.type = 'button';
+          card.style.setProperty('--i', ci);
+          card.setAttribute('aria-pressed', 'false');
+          const inner = el('span', 'card-in');
+          inner.append(el('span', 'face front', c.f), el('span', 'face back', c.b));
+          card.appendChild(inner);
+          card.addEventListener('click', () => {
+            const on = card.classList.toggle('flip');
+            card.setAttribute('aria-pressed', String(on));
+            sfx.click();
+            if (on && ci === 2) sfx.chord();
+          });
+          row.appendChild(card);
         });
-        row.appendChild(card);
-      });
-      sc.appendChild(row);
-    }
+        sc.appendChild(row);
+      }
+    });
+    textScenes.push(sc);
     scenes.push(sc);
   });
 
-  /* 4 · a small puzzle */
+  /* 4 · a small puzzle that assembles itself */
   const pz = data.puzzle || {};
   const sp = el('section', 'scene puzzle');
-  const pzHint = el('p', 'puzzle-hint', pz.hint || 'monte o quebra-cabeça');
+  const pzHint = el('p', 'puzzle-hint', pz.hint || '');
   const pzCv = el('canvas');
-  pzCv.tabIndex = 0;
-  pzCv.setAttribute('role', 'application');
-  pzCv.setAttribute('aria-label', 'Quebra-cabeça: toque em uma peça e depois em outra para trocar; com o teclado, use as setas e Enter');
+  pzCv.setAttribute('role', 'img');
+  pzCv.setAttribute('aria-label', 'Um quebra-cabeça se monta sozinho');
   const pzDone = el('p', 'puzzle-done', pz.done || '');
   sp.append(pzHint, pzCv, pzDone);
+  if (CFG.reduced) sp.classList.add('solved');
   scenes.push(sp);
 
   /* 5 · wishes, stacked */
@@ -228,15 +228,23 @@ export function mount(data, root) {
   end.append(closing, rule, sig, again);
   scenes.push(end);
 
+  const nav = el('div', 'nav');
+  const prevBtn = el('button', 'prev');
+  prevBtn.type = 'button';
+  prevBtn.setAttribute('aria-label', 'Voltar');
+  const back = sv('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+  back.appendChild(sv('path', { d: 'M14.5 5.5L8 12l6.5 6.5', class: 'ico line' }));
+  prevBtn.appendChild(back);
   const nextBtn = el('button', 'next');
   nextBtn.type = 'button';
   nextBtn.setAttribute('aria-label', 'Continuar');
-  const arrow = sv('svg', { viewBox: '0 0 18 30', 'aria-hidden': 'true' });
-  arrow.appendChild(sv('path', { d: 'M9 1v26M2.5 20.5L9 28l6.5-7.5', class: 'ico line' }));
+  const arrow = sv('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+  arrow.appendChild(sv('path', { d: 'M5 12h14M13 6l6 6-6 6', class: 'ico line' }));
   nextBtn.append(el('span', 'next-t', 'continuar'), arrow);
+  nav.append(prevBtn, nextBtn);
   const progress = el('div', 'progress');
   progress.setAttribute('aria-hidden', 'true');
-  root.append(gate, mute, nextBtn, progress, petalCanvas(), ...scenes);
+  root.append(gate, mute, nav, progress, petalCanvas(), ...scenes);
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
@@ -274,8 +282,7 @@ export function mount(data, root) {
     }
   };
   const puzzle = createPuzzle(pzCv, data.title, {
-    onSelect: () => sfx.click(),
-    onSwap: () => sfx.snap(),
+    onPlace: () => sfx.snap(),
     onSolved: () => {
       sp.classList.add('solved');
       sfx.arp();
@@ -350,8 +357,8 @@ export function mount(data, root) {
   });
 
   again.addEventListener('click', () => {
-    scrollTo({ top: 0, behavior: CFG.reduced ? 'auto' : 'smooth' });
-    setTimeout(() => runCurve(CFG.reduced), CFG.reduced ? 0 : 700);
+    go(0);
+    setTimeout(() => runCurve(CFG.reduced), CFG.reduced ? 0 : 900);
   });
 
   /* resize: ignore the mobile toolbar showing and hiding */
@@ -373,68 +380,60 @@ export function mount(data, root) {
   addEventListener('scroll', () => {
     const max = document.documentElement.scrollHeight - innerHeight;
     progress.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
-    document.body.classList.toggle('scrolled', scrollY > 40);
     s1.style.setProperty('--out', clamp(scrollY / (innerHeight * 0.8), 0, 1).toFixed(3));
   }, { passive: true });
 
-  /* the letter: words appear as the page settles; leaving the screen or tapping finishes it */
-  const finish = (r) => {
-    if (r.done) return;
-    clearInterval(r.timer);
-    clearTimeout(r.timer);
-    r.done = true;
-    r.spans.forEach((s) => s.classList.add('on', 'now'));
-  };
-  reveals.forEach((r) => r.p.addEventListener('click', () => finish(r)));
-  const ioText = new IntersectionObserver((entries) => {
+  /* each screen settles in as a whole; the puzzle starts when it is in view */
+  const ioSeen = new IntersectionObserver((entries) => {
     for (const en of entries) {
-      const r = reveals.find((x) => x.sc === en.target);
-      if (!r) continue;
-      if (en.isIntersecting && en.intersectionRatio >= 0.15) r.sc.classList.add('seen');
-      if (r.done) continue;
-      const seen = en.isIntersecting && (en.intersectionRatio >= 0.35 || en.intersectionRect.height >= innerHeight * 0.5);
-      if (seen && !r.started) {
-        r.started = true;
-        r.timer = setTimeout(() => {
-          r.timer = setInterval(() => {
-            if (r.k >= r.spans.length) {
-              clearInterval(r.timer);
-              r.done = true;
-              return;
-            }
-            r.spans[r.k++].classList.add('on');
-          }, 42);
-        }, 380);
-      } else if (!en.isIntersecting && r.started) finish(r);
+      if (en.isIntersecting && en.intersectionRatio >= 0.3) {
+        en.target.classList.add('seen');
+        if (en.target === sp && en.intersectionRatio >= 0.85) puzzle.start();
+      }
     }
-  }, { threshold: [0, 0.1, 0.35, 0.5] });
-  reveals.forEach((r) => ioText.observe(r.sc));
+  }, { threshold: [0.3, 0.85, 0.98] });
+  [...textScenes, sp].forEach((n) => ioSeen.observe(n));
 
-  /* the "continue" button: a slow, eased scroll to the next screen */
-  let scrollAnim = 0;
-  const root0 = document.documentElement;
-  const stopAnim = () => {
-    cancelAnimationFrame(scrollAnim);
-    root0.style.scrollSnapType = '';
+  /* keep every text screen inside the viewport, since the page does not scroll by hand */
+  const probe = el('div');
+  probe.style.cssText = 'position:fixed;left:-9px;top:0;width:1px;height:100svh;pointer-events:none;visibility:hidden';
+  document.body.appendChild(probe);
+  const fitScreens = () => {
+    const H = probe.getBoundingClientRect().height || innerHeight;
+    textScenes.forEach((sc) => {
+      sc.style.removeProperty('--fs');
+      const pr = sc.querySelector('.prose');
+      let fs = parseFloat(getComputedStyle(pr).fontSize);
+      for (let n = 0; n < 16 && sc.getBoundingClientRect().height > H + 1 && fs > 16; n++) {
+        fs -= 1;
+        sc.style.setProperty('--fs', fs + 'px');
+      }
+    });
   };
-  ['wheel', 'touchstart', 'keydown'].forEach((ev) => addEventListener(ev, stopAnim, { passive: true }));
+  fitScreens();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitScreens);
+  addEventListener('resize', () => setTimeout(fitScreens, 300));
+
+  /* navigation: only the buttons (and the keyboard) move the page, slowly and softly */
+  let scrollAnim = 0;
+  let animating = false;
   const smoothTo = (y) => {
     if (CFG.reduced) {
       scrollTo(0, y);
       return;
     }
     cancelAnimationFrame(scrollAnim);
+    animating = true;
     const y0 = scrollY;
     const d = y - y0;
     const t0 = performance.now();
-    const dur = clamp((Math.abs(d) / innerHeight) * 900 + 500, 700, 1500);
-    root0.style.scrollSnapType = 'none';
+    const dur = clamp((Math.abs(d) / innerHeight) * 900 + 600, 800, 1600);
     const step = (now) => {
       const t = Math.min(1, (now - t0) / dur);
       const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
       scrollTo(0, y0 + d * e);
       if (t < 1) scrollAnim = requestAnimationFrame(step);
-      else root0.style.scrollSnapType = '';
+      else animating = false;
     };
     scrollAnim = requestAnimationFrame(step);
   };
@@ -444,22 +443,38 @@ export function mount(data, root) {
     scenes.forEach((sc, i) => { if (sc.offsetTop <= y) k = i; });
     return k;
   };
-  const refreshNext = () => {
-    const ready = started && s1.classList.contains('done');
-    nextBtn.classList.toggle('on', ready && currentIdx() < scenes.length - 1);
+  let target = 0;
+  const go = (i) => {
+    if (i < 0 || i >= scenes.length) return;
+    target = i;
+    smoothTo(scenes[i].offsetTop);
+    refreshNav(i);
   };
-  nextBtn.addEventListener('click', () => {
-    const i = currentIdx();
-    const r = reveals.find((x) => x.sc === scenes[i]);
-    if (r && !r.done) {
-      finish(r);
-      return;
+  const refreshNav = (idx = currentIdx()) => {
+    const ready = started && s1.classList.contains('done');
+    nav.classList.toggle('on', ready && idx < scenes.length - 1 || ready && idx > 0);
+    nextBtn.classList.toggle('hide', idx >= scenes.length - 1);
+    prevBtn.classList.toggle('hide', idx <= 0);
+  };
+  const base = () => (animating ? target : currentIdx());
+  nextBtn.addEventListener('click', () => go(base() + 1));
+  prevBtn.addEventListener('click', () => go(base() - 1));
+  addEventListener('keydown', (e) => {
+    if (!started) return;
+    if (['ArrowDown', 'PageDown', ' '].includes(e.key) && !(e.target.closest && e.target.closest('button'))) {
+      e.preventDefault();
+      go(base() + 1);
+    } else if (['ArrowUp', 'PageUp'].includes(e.key)) {
+      e.preventDefault();
+      go(base() - 1);
     }
-    if (scenes[i + 1]) smoothTo(scenes[i + 1].offsetTop);
   });
-  addEventListener('scroll', refreshNext, { passive: true });
-  new MutationObserver(refreshNext).observe(s1, { attributes: true, attributeFilter: ['class'] });
-  addEventListener('resize', refreshNext);
+  /* no manual scrolling: wheel and touch drags are ignored */
+  addEventListener('wheel', (e) => { if (started) e.preventDefault(); }, { passive: false });
+  addEventListener('touchmove', (e) => { if (started) e.preventDefault(); }, { passive: false });
+  addEventListener('scroll', () => refreshNav(), { passive: true });
+  new MutationObserver(() => refreshNav()).observe(s1, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', () => refreshNav());
 
   /* closing: a soft arpeggio and a few petals */
   let driftTimer = null;
