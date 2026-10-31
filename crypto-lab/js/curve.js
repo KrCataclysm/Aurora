@@ -64,48 +64,56 @@ async function buildItems(pts, L, w, h, phrases, isDead) {
   const mk = document.createElement('canvas').getContext('2d');
   const rose = hex(css('--rose'));
   const petal = hex(css('--petal'));
+  const violet = hex(css('--violet'));
+  const lav = hex(css('--lav'));
   const cell = Math.max(6, L.s * 0.5);
   const cols = Math.ceil(w / cell);
   const taken = new Set();
-  const cap = CFG.lowEnd ? 120 : CFG.maxWords;
+  const cap = Math.min(CFG.lowEnd ? 120 : CFG.maxWords, phrases.length);
   const order = shuffle(phrases.slice());
   const items = [];
   let t0 = performance.now();
-  for (let k = 0, tries = 0; items.length < cap && tries < cap * 4 && order.length; k++, tries++) {
+  for (const text of order) {
     if (isDead()) return items;
+    if (items.length >= cap) break;
     if (performance.now() - t0 > 5) {
       await nextFrame();
       t0 = performance.now();
     }
-    const text = order[k % order.length];
-    let size = L.s * (0.8 + Math.random() * 1.0);
-    const rot = (Math.random() - 0.5) * 0.5;
-    mk.font = `italic 300 ${size}px ${FONT}`;
-    const w0 = mk.measureText(text).width;
-    if (w0 > L.s * 11) {
-      size *= (L.s * 11) / w0;
-      mk.font = `italic 300 ${size}px ${FONT}`;
-    }
-    const tw = Math.ceil(mk.measureText(text).width) + 8;
-    const th = Math.ceil(size * 1.5);
-    const hw = (tw * Math.abs(Math.cos(rot)) + th * Math.abs(Math.sin(rot))) / 2;
-    const hh = (th * Math.abs(Math.cos(rot)) + tw * Math.abs(Math.sin(rot))) / 2;
+    const base = L.s * (0.95 + Math.random() * 0.8);
+    const rot = (Math.random() - 0.5) * 0.4;
+    let size = base;
     let placed = null;
-    for (let a = 0; a < 40 && !placed; a++) {
-      const x = L.cx + (Math.random() - 0.5) * 32 * L.s;
-      const y = L.cy + (Math.random() - 0.5) * 30 * L.s;
-      const inside = [[0, 0], [-hw * 0.95, 0], [hw * 0.95, 0], [-hw * 0.9, -hh * 0.6], [hw * 0.9, hh * 0.6], [0, -hh * 0.7], [0, hh * 0.7]]
-        .every(([dx, dy]) => hit.isPointInPath(path, x + dx, y + dy));
-      if (!inside) continue;
-      const cells = [];
-      for (let gx = Math.floor((x - hw) / cell); gx <= Math.floor((x + hw) / cell); gx++) {
-        for (let gy = Math.floor((y - hh * 0.6) / cell); gy <= Math.floor((y + hh * 0.6) / cell); gy++) {
-          cells.push(gy * cols + gx);
-        }
+    let tw = 0;
+    let th = 0;
+    for (let shrink = 0; shrink < 4 && !placed; shrink++) {
+      size = base * Math.pow(0.86, shrink);
+      mk.font = `italic 300 ${size}px ${FONT}`;
+      const w0 = mk.measureText(text).width;
+      if (w0 > L.s * 11) {
+        size *= (L.s * 11) / w0;
+        mk.font = `italic 300 ${size}px ${FONT}`;
       }
-      if (cells.some((c) => taken.has(c))) continue;
-      cells.forEach((c) => taken.add(c));
-      placed = { x, y };
+      tw = Math.ceil(mk.measureText(text).width) + 8;
+      th = Math.ceil(size * 1.5);
+      const hw = (tw * Math.abs(Math.cos(rot)) + th * Math.abs(Math.sin(rot))) / 2;
+      const hh = (th * Math.abs(Math.cos(rot)) + tw * Math.abs(Math.sin(rot))) / 2;
+      for (let a = 0; a < 70 && !placed; a++) {
+        const x = L.cx + (Math.random() - 0.5) * 32 * L.s;
+        const y = L.cy + (Math.random() - 0.5) * 30 * L.s;
+        const inside = [[0, 0], [-hw * 0.95, 0], [hw * 0.95, 0], [-hw * 0.9, -hh * 0.6], [hw * 0.9, hh * 0.6], [0, -hh * 0.7], [0, hh * 0.7]]
+          .every(([dx, dy]) => hit.isPointInPath(path, x + dx, y + dy));
+        if (!inside) continue;
+        const cells = [];
+        for (let gx = Math.floor((x - hw * 1.05) / cell); gx <= Math.floor((x + hw * 1.05) / cell); gx++) {
+          for (let gy = Math.floor((y - hh * 0.9) / cell); gy <= Math.floor((y + hh * 0.9) / cell); gy++) {
+            cells.push(gy * cols + gx);
+          }
+        }
+        if (cells.some((c) => taken.has(c))) continue;
+        cells.forEach((c) => taken.add(c));
+        placed = { x, y };
+      }
     }
     if (!placed) continue;
     const sp = document.createElement('canvas');
@@ -118,7 +126,8 @@ async function buildItems(pts, L, w, h, phrases, isDead) {
     sc.textBaseline = 'middle';
     if (RTL.test(text)) sc.direction = 'rtl';
     const t = Math.min(1, Math.max(0, (placed.y - (L.cy - 15 * L.s)) / (30 * L.s) + (Math.random() - 0.5) * 0.4));
-    sc.fillStyle = `rgb(${lerp(rose, petal, t).join(',')})`;
+    const pair = items.length % 2 ? [violet, lav] : [rose, petal];
+    sc.fillStyle = `rgb(${lerp(pair[0], pair[1], t).join(',')})`;
     sc.fillText(text, tw / 2, th / 2);
     items.push({ sp, tw, th, rot, ...placed, at: 0 });
   }

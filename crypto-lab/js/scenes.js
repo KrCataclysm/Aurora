@@ -127,9 +127,10 @@ export function mount(data, root) {
   mosaic.setAttribute('aria-hidden', 'true');
   stage.append(line, mosaic);
   const title = el('h1', 'title', data.title);
+  const hint = el('p', 'hint', 'deslize para ler a mensagem inteira');
   const cue = el('div', 'cue');
   cue.setAttribute('aria-hidden', 'true');
-  s1.append(stage, title, cue);
+  s1.append(stage, title, hint, cue);
   scenes.push(s1);
 
   /* 2 · bloom */
@@ -143,7 +144,7 @@ export function mount(data, root) {
   const reveals = [];
   let cardsScene = null;
   data.blocks.forEach((text, i) => {
-    const sc = el('section', 'scene text');
+    const sc = el('section', 'scene text ' + (i % 2 ? 'tone-b' : 'tone-a'));
     const p = el('p', 'prose');
     const spaced = /\s/.test(text);
     const parts = spaced ? text.split(/\s+/).filter(Boolean) : text.match(/.{1,2}/gu) || [];
@@ -237,7 +238,7 @@ export function mount(data, root) {
   const fitTitle = () => {
     title.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(title).fontSize);
-    const max = s1.clientHeight * 0.28;
+    const max = s1.clientHeight * 0.22;
     while (title.offsetHeight > max && fs > 26) {
       fs -= 2;
       title.style.fontSize = fs + 'px';

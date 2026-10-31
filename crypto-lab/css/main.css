@@ -1,12 +1,16 @@
 /* crypto-lab — a quiet, typographic scene sequence */
 
 :root {
-  --bg: #12081F;
+  --bg: #050207;
   --deep: #3B1A5A;
   --glow: #8E5BD6;
   --rose: #FF7BAC;
   --petal: #FFC2D8;
   --text: #F7EEF5;
+  --violet: #A98BF0;
+  --lav: #D6C6FA;
+  --pink-text: #FFD9E8;
+  --hair-v: rgba(169, 139, 240, .28);
   --soft: rgba(247, 238, 245, .78);
   --hair: rgba(255, 194, 216, .22);
   --hair-strong: rgba(255, 194, 216, .45);
@@ -51,8 +55,8 @@ button { font: inherit; color: inherit; -webkit-user-select: none; user-select: 
 .backdrop {
   position: fixed; inset: 0; z-index: 0; pointer-events: none; display: none;
   background:
-    radial-gradient(75% 46% at 50% -8%, rgba(142, 91, 214, .24), rgba(142, 91, 214, 0) 72%),
-    radial-gradient(60% 36% at 50% 108%, rgba(255, 123, 172, .08), rgba(255, 123, 172, 0) 72%),
+    radial-gradient(70% 40% at 50% -10%, rgba(142, 91, 214, .10), rgba(142, 91, 214, 0) 72%),
+    radial-gradient(60% 30% at 50% 110%, rgba(255, 123, 172, .05), rgba(255, 123, 172, 0) 72%),
     var(--bg);
 }
 body.ready .backdrop { display: block; }
@@ -89,13 +93,13 @@ body.locked .scene { visibility: hidden; }
 @keyframes ring { 0%, 100% { transform: scale(.96); opacity: .5; } 50% { transform: scale(1.04); opacity: 1; } }
 .gate-btn span { position: relative; display: block; transition: transform 1s var(--ease), opacity 1s ease; }
 .gate.gone .gate-btn span { transform: translateY(-8px); opacity: 0; }
-.gate-a { font-style: italic; font-weight: 300; font-size: clamp(17px, 4.6vw, 20px); color: var(--petal); }
+.gate-a { font-style: italic; font-weight: 300; font-size: clamp(17px, 4.6vw, 20px); color: var(--rose); }
 .gate-btn::after {
   content: ""; position: relative; order: 1; width: 1px; height: 40px; margin: 22px 0;
   background: linear-gradient(to bottom, rgba(255, 123, 172, 0), var(--rose), rgba(255, 123, 172, 0));
 }
 .gate-a { order: 0; }
-.gate-b { order: 2; font-weight: 300; font-size: clamp(30px, 9vw, 44px); line-height: 1.15; max-width: 15ch; text-wrap: balance; }
+.gate-b { order: 2; color: var(--lav); font-weight: 300; font-size: clamp(30px, 9vw, 44px); line-height: 1.15; max-width: 15ch; text-wrap: balance; }
 
 .mute {
   position: fixed; z-index: 45;
@@ -144,13 +148,21 @@ body.started .mute { opacity: .9; pointer-events: auto; }
   position: absolute; z-index: 2; left: 56px; right: 56px;
   top: calc(max(20px, env(safe-area-inset-top)) + 4svh);
   text-align: center; font-style: italic; font-weight: 300; letter-spacing: -.012em;
-  font-size: clamp(40px, 11vw, 64px); line-height: 1.04; text-wrap: balance;
+  font-size: clamp(40px, 11vw, 64px); line-height: 1.04; text-wrap: balance; color: var(--pink-text);
   opacity: 0; filter: blur(10px); transition: opacity 2s ease, filter 2s ease;
 }
 .title.show { opacity: 1; filter: blur(0); }
+.hint {
+  position: absolute; z-index: 2; left: 0; right: 0; text-align: center; padding: 0 var(--pad-x);
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 62px);
+  font-style: italic; font-weight: 300; font-size: clamp(16px, 4.4vw, 19px); line-height: 1.4; color: var(--violet);
+  opacity: 0; transform: translateY(6px); transition: opacity 1.6s ease .6s, transform 1.6s var(--ease) .6s; pointer-events: none;
+}
+.s1.done .hint { opacity: 1; transform: none; }
+body.scrolled .hint { opacity: 0; transition-delay: 0s; transition-duration: .5s; }
 .cue {
   position: absolute; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); width: 1px; height: 48px; z-index: 2;
-  background: linear-gradient(to bottom, rgba(255, 194, 216, 0), var(--petal));
+  background: linear-gradient(to bottom, rgba(169, 139, 240, 0), var(--violet));
   transform-origin: top; opacity: 0; pointer-events: none;
 }
 .s1.done .cue { opacity: .8; animation: cue 3s ease-in-out infinite; }
@@ -173,6 +185,13 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
   font-size: clamp(21px, 5.7vw, 25px); line-height: 1.68; font-weight: 350; color: var(--text);
   text-wrap: pretty; overflow-wrap: break-word; hanging-punctuation: first;
 }
+.tone-a { --tone: var(--pink-text); --accent: var(--rose); --rule: var(--hair); }
+.tone-b { --tone: var(--lav); --accent: var(--violet); --rule: var(--hair-v); }
+.prose { color: var(--tone, var(--text)); border-left-color: var(--rule, var(--hair)); }
+.prose::first-letter {
+  float: left; font-family: var(--serif); font-style: italic; font-weight: 300; color: var(--accent, var(--rose));
+  font-size: 3.5em; line-height: .78; padding: .04em .1em 0 0;
+}
 .w { opacity: 0; filter: blur(5px); transition: opacity .8s ease, filter .8s ease; }
 .w.on { opacity: 1; filter: none; }
 .w.now { transition: none; opacity: 1; filter: none; }
@@ -192,11 +211,11 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
 .front {
   font-style: italic; font-weight: 300; font-size: clamp(15px, 4.4vw, 21px); line-height: 1.25;
   background: rgba(255, 194, 216, .05); border: 1px solid var(--hair-strong);
-  transition: background .4s;
+  color: var(--tone, var(--text)); transition: background .4s;
 }
 .card:hover .front { background: rgba(255, 194, 216, .09); }
 .back {
-  transform: rotateY(180deg); background: var(--petal); color: var(--bg);
+  transform: rotateY(180deg); background: var(--accent, var(--rose)); color: var(--bg);
   font-family: var(--hand); font-weight: 500; font-size: clamp(20px, 5.6vw, 26px); line-height: 1.12;
 }
 
@@ -208,11 +227,11 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
 .end.lit::before { opacity: 1; }
 .end > * { position: relative; }
 .closing {
-  max-width: 17ch; text-align: center; font-style: italic; font-weight: 300; letter-spacing: -.01em;
+  max-width: 17ch; text-align: center; font-style: italic; font-weight: 300; letter-spacing: -.01em; color: var(--lav);
   font-size: clamp(34px, 9vw, 52px); line-height: 1.12; text-wrap: balance;
 }
 .rule { width: 1px; height: 56px; margin: 30px 0 22px; background: linear-gradient(to bottom, rgba(255, 123, 172, 0), var(--rose)); }
-.sig { font-family: var(--script); font-weight: 400; font-size: clamp(60px, 18vw, 84px); line-height: 1; color: var(--petal); text-align: center; }
+.sig { font-family: var(--script); font-weight: 400; font-size: clamp(60px, 18vw, 84px); line-height: 1; color: var(--rose); text-align: center; }
 .again {
   margin-top: 56px; min-height: 44px; padding: 10px 26px;
   background: transparent; border: 1px solid var(--hair-strong); cursor: pointer;
@@ -237,4 +256,5 @@ body.scrolled .cue { animation: none; opacity: 0; transition: opacity .6s; }
   .w { transition: none; opacity: 1; filter: none; }
   .card-in { transition: none; }
   .title { transition: none; filter: none; }
+  .hint { transition: none; transform: none; }
 }
