@@ -309,9 +309,12 @@ body.started .mute { opacity: .9; pointer-events: auto; }
 @media (max-height: 520px) {
   .scene { padding-top: 18px; padding-bottom: 78px; }
   .text { gap: 12px; }
-  .puzzle .puzzle-done { min-height: 0; margin-top: 6px; font-size: 22px; }
-  .rule { height: 28px; margin: 14px 0 10px; }
-  .again { margin-top: 24px; }
+  .puzzle .puzzle-done { min-height: 0; margin-top: 4px; font-size: 20px; max-width: 34ch; }
+  .rule { height: 16px; margin: 8px 0 4px; }
+  .again { margin-top: 10px; min-height: 40px; padding: 6px 22px; font-size: 18px; }
+  .closing { font-size: clamp(26px, 8vh, 40px); max-width: 30ch; }
+  .sig { font-size: clamp(44px, 15vh, 64px); }
+  .puzzle .puzzle-hint { margin-bottom: 4px; font-size: 18px; min-height: 0; }
   .cards { margin-top: 20px; }
   .face { min-height: 84px; }
 }
