@@ -8,5 +8,6 @@ export const CFG = {
   gain: 0.35,
   maxParticles: 120,
   maxWords: 220,
+  defaultKey: 'TCL0PKNoLG0FH9vJQFxN',
   errorText: 'Decryption key missing or invalid.',
 };
