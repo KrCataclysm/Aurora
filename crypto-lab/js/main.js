@@ -34,16 +34,24 @@ function valid(d) {
 }
 
 async function boot() {
-  const pass = location.hash.slice(1);
-  if (!pass || !crypto.subtle) return fail();
-  let data;
+  /* the key from the link comes first; the built-in one lets the plain address open too */
+  const keys = [location.hash.slice(1), CFG.dev ? '' : CFG.defaultKey].filter((k, i, a) => k && a.indexOf(k) === i);
+  if (!keys.length || !crypto.subtle) return fail();
+  let data = null;
   try {
     const res = await fetch(CFG.dev ? CFG.devPayload : CFG.payload, { cache: 'no-store' });
     if (!res.ok) return fail();
-    data = await decrypt(await res.json(), pass);
+    const payload = await res.json();
+    for (const k of keys) {
+      try {
+        data = await decrypt(payload, k);
+        break;
+      } catch (e) { /* try the next key */ }
+    }
   } catch (e) {
     return fail();
   }
+  if (!data) return fail();
   if (!valid(data)) return fail();
   document.title = data.title;
   document.body.classList.add('ready', 'locked');
