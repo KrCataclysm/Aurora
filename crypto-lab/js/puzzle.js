@@ -137,7 +137,8 @@ export function createPuzzle(canvas, title, cb = {}) {
 
   function build() {
     const box = canvas.parentElement;
-    S = Math.round(clamp(Math.min((box.clientWidth - 40) / 1.2, 430, (box.clientHeight - 260) / 1.2), 200, 430) / G) * G;
+    const cap = clamp(Math.min(innerWidth, innerHeight) * 0.5, 430, 620);
+    S = Math.round(clamp(Math.min((box.clientWidth - 40) / 1.2, cap, (box.clientHeight - 260) / 1.2), 200, cap) / G) * G;
     c = S / G;
     pad = Math.round(c * 0.3);
     const W = S + pad * 2;

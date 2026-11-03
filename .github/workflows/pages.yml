@@ -36,7 +36,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
-          cp -r crypto-lab/index.html crypto-lab/css crypto-lab/js crypto-lab/payload.enc.json _site/
+          cp -r crypto-lab/index.html crypto-lab/css crypto-lab/js crypto-lab/payload.enc.json crypto-lab/preview.jpg _site/
           touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5
