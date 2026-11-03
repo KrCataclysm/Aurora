@@ -42,11 +42,11 @@ export function createStack(canvas, phrases, cb = {}) {
     canvas.style.height = h + 'px';
     ctx.setTransform(CFG.dpr, 0, 0, CFG.dpr, 0, 0);
 
-    const W = Math.min(w * 0.9, 560);
+    const W = Math.min(w * 0.9, 560 + Math.max(0, (Math.min(w, h) - 700) * 0.7));
     const tiers = [{ n: 3, f: 0.52 }, { n: 3, f: 0.76 }, { n: 4, f: 1 }];
     const total = tiers.reduce((a, t) => a + t.n, 0);
     const gap = 10;
-    let fs = clamp(W * 0.054, 16, 28);
+    let fs = clamp(W * 0.054, 16, 34);
     const compFor = (f) => f * 3.6 + 30 + total * f * 1.8 + gap * (tiers.length - 1);
     if (compFor(fs) > h * 0.9) fs = Math.max(10, fs * ((h * 0.9) / compFor(fs)));
     const rh = fs * 1.8;

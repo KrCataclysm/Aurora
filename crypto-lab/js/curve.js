@@ -56,7 +56,7 @@ async function buildItems(pts, L, w, h, phrases, isDead) {
   const petal = hex(css('--petal'));
   const violet = hex(css('--violet'));
   const lav = hex(css('--lav'));
-  const fs = Math.min(23, Math.max(13, L.s * 1.42));
+  const fs = Math.min(31, Math.max(13, L.s * 1.42));
   const font = `italic 500 ${fs}px ${FONT}`;
   mk.font = font;
   const remaining = shuffle(phrases.slice()).map((text) => ({ text, tw: Math.ceil(mk.measureText(text).width) }));
@@ -360,16 +360,14 @@ export function play(o) {
     prev = performance.now();
     requestAnimationFrame(frame);
   };
-  const io = host ? new IntersectionObserver((entries) => {
-    st.visible = entries[0].isIntersecting;
-    if (st.visible) run();
-  }, { threshold: 0.05 }) : null;
-  if (io) io.observe(host);
   run();
   return {
+    setVisible(v) {
+      st.visible = !!v;
+      if (st.visible) run();
+    },
     cancel() {
       st.dead = true;
-      if (io) io.disconnect();
       if (host) {
         host.removeEventListener('pointermove', onMove);
         host.removeEventListener('pointerdown', onMove);

@@ -129,7 +129,7 @@ export function mount(data, root) {
   );
   mute.appendChild(icon);
 
-  /* 1 · curve */
+  /* 1 · the heart */
   const s1 = el('section', 'scene s1');
   const stage = el('div', 'stage');
   const line = el('canvas');
@@ -141,7 +141,7 @@ export function mount(data, root) {
   s1.append(stage, title);
   scenes.push(s1);
 
-  /* 2 · bloom */
+  /* 2 · the flower */
   const s2 = el('section', 'scene s2');
   const bloomCv = el('canvas', 'bloom');
   bloomCv.setAttribute('aria-hidden', 'true');
@@ -178,6 +178,7 @@ export function mount(data, root) {
             const on = card.classList.toggle('flip');
             card.setAttribute('aria-pressed', String(on));
             sfx.click();
+            if (navigator.vibrate) navigator.vibrate(8);
             if (on && ci === 2) sfx.chord();
           });
           row.appendChild(card);
@@ -209,7 +210,7 @@ export function mount(data, root) {
   const wickBtns = Array.from({ length: WICKS }, (_, i) => {
     const b = el('button', 'wick-btn');
     b.type = 'button';
-    b.setAttribute('aria-label', `Switch ${i + 1}`);
+    b.setAttribute('aria-label', `Apagar ou acender a vela ${i + 1}`);
     wickLayer.appendChild(b);
     return b;
   });
@@ -228,6 +229,7 @@ export function mount(data, root) {
   end.append(closing, rule, sig, again);
   scenes.push(end);
 
+  /* navigation: a clear "continue" button and a quiet "back" */
   const nav = el('div', 'nav');
   const prevBtn = el('button', 'prev');
   prevBtn.type = 'button';
@@ -242,9 +244,15 @@ export function mount(data, root) {
   arrow.appendChild(sv('path', { d: 'M5 12h14M13 6l6 6-6 6', class: 'ico line' }));
   nextBtn.append(el('span', 'next-t', 'continuar'), arrow);
   nav.append(prevBtn, nextBtn);
+
   const progress = el('div', 'progress');
   progress.setAttribute('aria-hidden', 'true');
-  root.append(gate, mute, nav, progress, petalCanvas(), ...scenes);
+  const status = el('p', 'sr-only');
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  const stageBox = el('main', 'pages');
+  stageBox.append(...scenes);
+  root.append(gate, mute, nav, progress, petalCanvas(), status, stageBox);
 
   /* ---------- behaviour ---------- */
   const phrases = data.mosaic;
@@ -271,6 +279,15 @@ export function mount(data, root) {
     onAllOut: () => sfx.arp(),
   });
   wickBtns.forEach((b, i) => b.addEventListener('click', () => stack.toggle(i)));
+  const puzzle = createPuzzle(pzCv, data.title, {
+    onPlace: () => sfx.snap(),
+    onSolved: () => {
+      sp.classList.add('solved');
+      sfx.arp();
+      const r = pzCv.getBoundingClientRect();
+      for (let i = 0; i < 3; i++) release(r.left + r.width * (0.25 + 0.25 * i), r.top + r.height * 0.5);
+    },
+  });
 
   const fitTitle = () => {
     title.style.fontSize = '';
@@ -281,16 +298,22 @@ export function mount(data, root) {
       title.style.fontSize = fs + 'px';
     }
   };
-  const puzzle = createPuzzle(pzCv, data.title, {
-    onPlace: () => sfx.snap(),
-    onSolved: () => {
-      sp.classList.add('solved');
-      sfx.arp();
-      const r = pzCv.getBoundingClientRect();
-      for (let i = 0; i < 3; i++) release(r.left + r.width * (0.25 + 0.25 * i), r.top + r.height * 0.5);
-    },
-  });
-  if (CFG.dev) window.__puzzle = puzzle;
+
+  /* every text screen must fit the viewport; as a last resort it scrolls inside itself */
+  const fitScreens = () => {
+    textScenes.forEach((sc) => {
+      sc.style.removeProperty('--fs');
+      sc.classList.remove('scrollable');
+      const pr = sc.querySelector('.prose');
+      let fs = parseFloat(getComputedStyle(pr).fontSize);
+      for (let n = 0; n < 18 && sc.scrollHeight > sc.clientHeight + 1 && fs > 15; n++) {
+        fs -= 1;
+        sc.style.setProperty('--fs', fs + 'px');
+      }
+      if (sc.scrollHeight > sc.clientHeight + 1) sc.classList.add('scrollable');
+    });
+  };
+
   const buildCanvases = () => {
     if (CFG.reduced) bloom.drawStatic();
     else bloom.rebuild();
@@ -299,23 +322,15 @@ export function mount(data, root) {
   };
   buildCanvases();
   fitTitle();
+  fitScreens();
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => {
       stack.rebuild();
       puzzle.rebuild();
       fitTitle();
+      fitScreens();
     });
   }
-
-  const live = [[s2, CFG.reduced ? { start() {}, stop() {} } : bloom], [s3, stack]];
-  const ioLive = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      const o = live.find((l) => l[0] === en.target)[1];
-      if (en.isIntersecting) o.start();
-      else o.stop();
-    }
-  }, { threshold: 0.1 });
-  live.forEach((l) => ioLive.observe(l[0]));
 
   const runCurve = (staticMode) => {
     if (curveRun) curveRun.cancel();
@@ -326,11 +341,84 @@ export function mount(data, root) {
       onDone: () => {
         title.classList.add('show');
         s1.classList.add('done');
+        refreshNav();
       },
     });
+    if (cur !== 0 && curveRun.setVisible) curveRun.setVisible(false);
   };
 
+  /* ---------- paging: one screen at a time, softly crossfaded ---------- */
+  let cur = -1;
   let started = false;
+  let busy = false;
+  let driftTimer = null;
+  let endPlayed = false;
+  const noop = () => {};
+  const enter = new Map([
+    [s1, () => curveRun && curveRun.setVisible && curveRun.setVisible(true)],
+    [s2, () => (CFG.reduced ? noop() : bloom.start())],
+    [sp, () => puzzle.start()],
+    [s3, () => stack.start()],
+    [end, () => {
+      end.classList.add('lit');
+      if (!endPlayed) {
+        endPlayed = true;
+        sfx.arp();
+      }
+      if (!CFG.reduced && !driftTimer) {
+        drift = true;
+        driftTimer = setInterval(() => spawn(rnd(0, innerWidth), -12, rnd(-0.3, 0.3), rnd(0.5, 0.9), 0.0015), 900);
+      }
+    }],
+  ]);
+  textScenes.forEach((sc) => enter.set(sc, () => sc.classList.add('seen')));
+  const leave = new Map([
+    [s1, () => curveRun && curveRun.setVisible && curveRun.setVisible(false)],
+    [s2, () => bloom.stop()],
+    [s3, () => stack.stop()],
+    [end, () => {
+      end.classList.remove('lit');
+      endPlayed = false;
+      drift = false;
+      clearInterval(driftTimer);
+      driftTimer = null;
+    }],
+  ]);
+
+  const refreshNav = () => {
+    const ready = started && s1.classList.contains('done');
+    nav.classList.toggle('on', ready);
+    nextBtn.classList.toggle('hide', cur >= scenes.length - 1);
+    prevBtn.classList.toggle('hide', cur <= 0);
+  };
+
+  const show = (i) => {
+    if (i === cur || i < 0 || i >= scenes.length) return;
+    const prev = scenes[cur];
+    if (prev) {
+      prev.classList.remove('active');
+      prev.setAttribute('inert', '');
+      (leave.get(prev) || noop)();
+    }
+    cur = i;
+    const sc = scenes[i];
+    scenes.forEach((s, k) => s.classList.toggle('before', k < i));
+    sc.classList.add('active');
+    sc.removeAttribute('inert');
+    (enter.get(sc) || noop)();
+    progress.style.transform = `scaleY(${scenes.length > 1 ? i / (scenes.length - 1) : 0})`;
+    status.textContent = `Tela ${i + 1} de ${scenes.length}`;
+    refreshNav();
+  };
+  const go = (i) => {
+    if (busy || i < 0 || i >= scenes.length) return;
+    busy = true;
+    setTimeout(() => { busy = false; }, CFG.reduced ? 0 : 650);
+    show(i);
+  };
+  scenes.forEach((s) => s.setAttribute('inert', ''));
+  show(0);
+
   gbtn.addEventListener('click', () => {
     if (started) return;
     started = true;
@@ -356,12 +444,25 @@ export function mount(data, root) {
     mute.setAttribute('aria-label', m ? 'Ativar som' : 'Silenciar');
   });
 
+  nextBtn.addEventListener('click', () => go(cur + 1));
+  prevBtn.addEventListener('click', () => go(cur - 1));
   again.addEventListener('click', () => {
     go(0);
     setTimeout(() => runCurve(CFG.reduced), CFG.reduced ? 0 : 900);
   });
+  addEventListener('keydown', (e) => {
+    if (!started) return;
+    const onButton = e.target.closest && e.target.closest('button');
+    if (['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key) || (e.key === ' ' && !onButton)) {
+      e.preventDefault();
+      go(cur + 1);
+    } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) {
+      e.preventDefault();
+      go(cur - 1);
+    }
+  });
 
-  /* resize: ignore the mobile toolbar showing and hiding */
+  /* resize and rotation: rebuild what depends on the size, ignore the mobile toolbar */
   let lw = innerWidth;
   let lh = innerHeight;
   let rs;
@@ -372,133 +473,9 @@ export function mount(data, root) {
       lw = innerWidth;
       lh = innerHeight;
       fitTitle();
+      fitScreens();
       if (started && title.classList.contains('show')) runCurve(true);
       buildCanvases();
     }, 250);
   });
-
-  addEventListener('scroll', () => {
-    const max = document.documentElement.scrollHeight - innerHeight;
-    progress.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
-    s1.style.setProperty('--out', clamp(scrollY / (innerHeight * 0.8), 0, 1).toFixed(3));
-  }, { passive: true });
-
-  /* each screen settles in as a whole; the puzzle starts when it is in view */
-  const ioSeen = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      if (en.isIntersecting && en.intersectionRatio >= 0.3) {
-        en.target.classList.add('seen');
-        if (en.target === sp && en.intersectionRatio >= 0.85) puzzle.start();
-      }
-    }
-  }, { threshold: [0.3, 0.85, 0.98] });
-  [...textScenes, sp].forEach((n) => ioSeen.observe(n));
-
-  /* keep every text screen inside the viewport, since the page does not scroll by hand */
-  const probe = el('div');
-  probe.style.cssText = 'position:fixed;left:-9px;top:0;width:1px;height:100svh;pointer-events:none;visibility:hidden';
-  document.body.appendChild(probe);
-  const fitScreens = () => {
-    const H = probe.getBoundingClientRect().height || innerHeight;
-    textScenes.forEach((sc) => {
-      sc.style.removeProperty('--fs');
-      const pr = sc.querySelector('.prose');
-      let fs = parseFloat(getComputedStyle(pr).fontSize);
-      for (let n = 0; n < 16 && sc.getBoundingClientRect().height > H + 1 && fs > 16; n++) {
-        fs -= 1;
-        sc.style.setProperty('--fs', fs + 'px');
-      }
-    });
-  };
-  fitScreens();
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitScreens);
-  addEventListener('resize', () => setTimeout(fitScreens, 300));
-
-  /* navigation: only the buttons (and the keyboard) move the page, slowly and softly */
-  let scrollAnim = 0;
-  let animating = false;
-  const smoothTo = (y) => {
-    if (CFG.reduced) {
-      scrollTo(0, y);
-      return;
-    }
-    cancelAnimationFrame(scrollAnim);
-    animating = true;
-    const y0 = scrollY;
-    const d = y - y0;
-    const t0 = performance.now();
-    const dur = clamp((Math.abs(d) / innerHeight) * 900 + 600, 800, 1600);
-    const step = (now) => {
-      const t = Math.min(1, (now - t0) / dur);
-      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      scrollTo(0, y0 + d * e);
-      if (t < 1) scrollAnim = requestAnimationFrame(step);
-      else animating = false;
-    };
-    scrollAnim = requestAnimationFrame(step);
-  };
-  const currentIdx = () => {
-    const y = scrollY + innerHeight * 0.5;
-    let k = 0;
-    scenes.forEach((sc, i) => { if (sc.offsetTop <= y) k = i; });
-    return k;
-  };
-  let target = 0;
-  const go = (i) => {
-    if (i < 0 || i >= scenes.length) return;
-    target = i;
-    smoothTo(scenes[i].offsetTop);
-    refreshNav(i);
-  };
-  const refreshNav = (idx = currentIdx()) => {
-    const ready = started && s1.classList.contains('done');
-    nav.classList.toggle('on', ready && idx < scenes.length - 1 || ready && idx > 0);
-    nextBtn.classList.toggle('hide', idx >= scenes.length - 1);
-    prevBtn.classList.toggle('hide', idx <= 0);
-  };
-  const base = () => (animating ? target : currentIdx());
-  nextBtn.addEventListener('click', () => go(base() + 1));
-  prevBtn.addEventListener('click', () => go(base() - 1));
-  addEventListener('keydown', (e) => {
-    if (!started) return;
-    if (['ArrowDown', 'PageDown', ' '].includes(e.key) && !(e.target.closest && e.target.closest('button'))) {
-      e.preventDefault();
-      go(base() + 1);
-    } else if (['ArrowUp', 'PageUp'].includes(e.key)) {
-      e.preventDefault();
-      go(base() - 1);
-    }
-  });
-  /* no manual scrolling: wheel and touch drags are ignored */
-  addEventListener('wheel', (e) => { if (started) e.preventDefault(); }, { passive: false });
-  addEventListener('touchmove', (e) => { if (started) e.preventDefault(); }, { passive: false });
-  addEventListener('scroll', () => refreshNav(), { passive: true });
-  new MutationObserver(() => refreshNav()).observe(s1, { attributes: true, attributeFilter: ['class'] });
-  addEventListener('resize', () => refreshNav());
-
-  /* closing: a soft arpeggio and a few petals */
-  let driftTimer = null;
-  let endPlayed = false;
-  const ioEnd = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      const on = en.isIntersecting && en.intersectionRatio >= 0.5;
-      end.classList.toggle('lit', on);
-      if (on) {
-        if (!endPlayed) {
-          endPlayed = true;
-          sfx.arp();
-        }
-        if (!CFG.reduced && !driftTimer) {
-          drift = true;
-          driftTimer = setInterval(() => spawn(rnd(0, innerWidth), -12, rnd(-0.3, 0.3), rnd(0.5, 0.9), 0.0015), 900);
-        }
-      } else {
-        endPlayed = false;
-        drift = false;
-        clearInterval(driftTimer);
-        driftTimer = null;
-      }
-    }
-  }, { threshold: [0, 0.1, 0.5] });
-  ioEnd.observe(end);
 }
